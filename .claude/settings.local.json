@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl:*)",
+      "WebSearch",
+      "WebFetch(domain:teavm.org)",
+      "Bash(cd:*)",
+      "WebFetch(domain:codemirror.net)"
+    ]
+  }
+}

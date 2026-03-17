@@ -1,0 +1,6 @@
+[
+  { "name": "Hola Mundo", "filename": "hola-mundo.ipynb" },
+  { "name": "Variables y Tipos", "filename": "variables.ipynb" },
+  { "name": "Colecciones", "filename": "collections.ipynb" },
+  { "name": "POO - Clases y Objetos", "filename": "oop-basics.ipynb" }
+]
