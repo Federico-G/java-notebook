@@ -7,6 +7,10 @@ import { EditorState, Compartment } from '@codemirror/state';
 import { indentSelection, indentWithTab } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
 import { search } from '@codemirror/search';
+import { oneDark } from '@codemirror/theme-one-dark';
+
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const darkTheme = isDark ? oneDark : [];
 
 function getIndentSize() {
     try {
@@ -67,7 +71,8 @@ export function createJavaEditor(parentEl, initialDoc, callbacks) {
             makeIndentExtensions(indentCompartment, indent),
             updateListener,
             EditorView.lineWrapping,
-            baseTheme
+            baseTheme,
+            darkTheme
         ]
     });
 
@@ -117,7 +122,8 @@ export function createMarkdownEditor(parentEl, initialDoc, callbacks) {
             makeIndentExtensions(indentCompartment, indent),
             updateListener,
             EditorView.lineWrapping,
-            baseTheme
+            baseTheme,
+            darkTheme
         ]
     });
 

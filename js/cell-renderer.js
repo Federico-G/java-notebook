@@ -62,7 +62,7 @@ export function renderAddCellButton() {
     const el = document.createElement('div');
     el.className = 'add-cell-row';
     el.innerHTML = `
-        <button class="btn btn-add-code" title="Agregar celda de codigo">+ Code</button>
+        <button class="btn btn-add-code" title="Agregar celda de código">+ Código</button>
         <button class="btn btn-add-markdown" title="Agregar celda markdown">+ Markdown</button>
     `;
     return el;
