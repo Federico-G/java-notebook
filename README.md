@@ -2,6 +2,8 @@
 
 Notebook de Java 100% client-side que corre en el navegador. El compilador Java (javac) y TeaVM corren en WebAssembly — no necesita servidor, backend, ni instalación. Permite escribir y ejecutar código Java directamente en el navegador, con celdas de código y markdown al estilo Jupyter.
 
+**Probalo online:** https://federico-g.github.io/java-notebook/
+
 ## Cómo funciona
 
 1. Escribís código Java en las celdas del notebook
@@ -36,6 +38,19 @@ El compilador TeaVM tiene algunas limitaciones al correr en el navegador:
 - `java.io.File` — no hay filesystem
 
 Para la lista completa, ver `TEAVM-LIMITATIONS.md`.
+
+### Actualizar ejemplos
+
+Los notebooks de ejemplo están en `public/examples/`. Para agregar o modificar un ejemplo:
+
+1. Crear o editar el archivo `.ipynb` en `public/examples/`
+   - Se puede exportar un notebook desde la app con el botón **Exportar**
+2. Agregar la entrada en `public/examples/index.json`:
+   ```json
+   { "name": "Nombre visible en el menú", "filename": "mi-ejemplo.ipynb" }
+   ```
+
+Para eliminar un ejemplo, borrar el `.ipynb` y su entrada en `index.json`. No requiere ninguna herramienta — son archivos estáticos.
 
 ---
 
@@ -132,19 +147,6 @@ npm run update-teavm
 ```
 
 Descarga los 4 artefactos (~6.5 MB total) directamente del servidor oficial.
-
-### Actualizar ejemplos
-
-Los notebooks de ejemplo están en `public/examples/`. Para agregar o modificar un ejemplo:
-
-1. Crear o editar el archivo `.ipynb` en `public/examples/`
-   - Se puede exportar un notebook desde la app con el botón **Exportar**
-2. Agregar la entrada en `public/examples/index.json`:
-   ```json
-   { "name": "Nombre visible en el menú", "filename": "mi-ejemplo.ipynb" }
-   ```
-
-Para eliminar un ejemplo, borrar el `.ipynb` y su entrada en `index.json`. No requiere ninguna herramienta — son archivos estáticos.
 
 ### Deploy
 
