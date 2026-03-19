@@ -1,8 +1,10 @@
 // app.js — Main application bootstrap
 
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { createEmptyNotebook, createCell, fromJSON } from './notebook-model.js';
 import { initCompiler, setProgressCallback } from './compiler-worker-proxy.js';
-import { updateAllEditorsIndent } from './editor-setup.js';
+import { updateAllEditorsIndent, updateAllEditorsTheme } from './editor-setup.js';
 import { ExecutionManager } from './execution-manager.js';
 import {
     importFromFile, exportToFile, setupDragDrop,
@@ -176,6 +178,26 @@ function saveSettings(settings) {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
+// --- Theme ---
+
+const systemDarkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function applyTheme(mode) {
+    const isDark = mode === 'dark' || (mode === 'system' && systemDarkQuery.matches);
+    document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    updateAllEditorsTheme(isDark);
+}
+
+// Apply theme immediately from saved settings (before editors are created)
+applyTheme(getSettings().theme || 'system');
+
+// Listen for system theme changes (only affects 'system' mode)
+systemDarkQuery.addEventListener('change', () => {
+    if ((getSettings().theme || 'system') === 'system') {
+        applyTheme('system');
+    }
+});
+
 function initSettings() {
     const dropdown = document.getElementById('settings-dropdown');
     const btn = document.getElementById('btn-settings');
@@ -196,9 +218,23 @@ function initSettings() {
         menu.querySelectorAll('.settings-indent').forEach(el => {
             el.classList.toggle('active', String(settings.indentSize || 4) === el.dataset.size);
         });
+        menu.querySelectorAll('.settings-theme').forEach(el => {
+            el.classList.toggle('active', (settings.theme || 'system') === el.dataset.theme);
+        });
     }
     updateActive();
 
+    // Theme buttons
+    menu.querySelectorAll('.settings-theme').forEach(el => {
+        el.addEventListener('click', () => {
+            settings.theme = el.dataset.theme;
+            saveSettings(settings);
+            updateActive();
+            applyTheme(settings.theme);
+        });
+    });
+
+    // Indent buttons
     menu.querySelectorAll('.settings-indent').forEach(el => {
         el.addEventListener('click', () => {
             settings.indentSize = parseInt(el.dataset.size);

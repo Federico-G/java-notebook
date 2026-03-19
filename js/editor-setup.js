@@ -9,9 +9,6 @@ import { indentUnit } from '@codemirror/language';
 import { search } from '@codemirror/search';
 import { oneDark } from '@codemirror/theme-one-dark';
 
-const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-const darkTheme = isDark ? oneDark : [];
-
 function getIndentSize() {
     try {
         const s = JSON.parse(localStorage.getItem('java-notebook-settings'));
@@ -19,8 +16,9 @@ function getIndentSize() {
     } catch { return 4; }
 }
 
-// Track all live editors and their indent compartments so we can reconfigure them
+// Track all live editors and their compartments so we can reconfigure them
 const liveEditors = new Set();
+let currentDark = document.documentElement.dataset.theme === 'dark';
 
 const baseTheme = EditorView.theme({
     '&': { fontSize: '14px' },
@@ -59,6 +57,7 @@ export function createJavaEditor(parentEl, initialDoc, callbacks) {
     });
 
     const indentCompartment = new Compartment();
+    const themeCompartment = new Compartment();
     const indent = getIndentSize();
     const state = EditorState.create({
         doc: initialDoc || '',
@@ -72,12 +71,12 @@ export function createJavaEditor(parentEl, initialDoc, callbacks) {
             updateListener,
             EditorView.lineWrapping,
             baseTheme,
-            darkTheme
+            themeCompartment.of(currentDark ? oneDark : [])
         ]
     });
 
     const view = new EditorView({ state, parent: parentEl });
-    liveEditors.add({ view, indentCompartment });
+    liveEditors.add({ view, indentCompartment, themeCompartment });
     return view;
 }
 
@@ -111,6 +110,7 @@ export function createMarkdownEditor(parentEl, initialDoc, callbacks) {
     ]);
 
     const indentCompartment = new Compartment();
+    const themeCompartment = new Compartment();
     const indent = getIndentSize();
     const state = EditorState.create({
         doc: initialDoc || '',
@@ -123,13 +123,27 @@ export function createMarkdownEditor(parentEl, initialDoc, callbacks) {
             updateListener,
             EditorView.lineWrapping,
             baseTheme,
-            darkTheme
+            themeCompartment.of(currentDark ? oneDark : [])
         ]
     });
 
     const view = new EditorView({ state, parent: parentEl });
-    liveEditors.add({ view, indentCompartment });
+    liveEditors.add({ view, indentCompartment, themeCompartment });
     return view;
+}
+
+// Reconfigure all live editors to dark or light theme
+export function updateAllEditorsTheme(isDark) {
+    currentDark = isDark;
+    for (const entry of liveEditors) {
+        if (!entry.view.dom.isConnected) {
+            liveEditors.delete(entry);
+            continue;
+        }
+        entry.view.dispatch({
+            effects: entry.themeCompartment.reconfigure(isDark ? oneDark : [])
+        });
+    }
 }
 
 // Reconfigure all live editors with a new indent size
