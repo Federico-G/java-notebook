@@ -76,7 +76,7 @@ function updateLoadingStatus(phase) {
             loadingStatus.textContent = 'Cargando compilador Java (WASM)...';
             break;
         case 'loading-classlibs':
-            loadingStatus.textContent = 'Cargando librerias de clases...';
+            loadingStatus.textContent = 'Cargando bibliotecas de clases...';
             break;
         case 'ready':
             loadingStatus.textContent = 'Compilador listo!';
