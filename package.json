@@ -9,15 +9,17 @@
     "update-teavm": "node update-teavm.mjs"
   },
   "dependencies": {
-    "bootstrap": "^5.3.8",
-    "codemirror": "^6.0.1",
     "@codemirror/commands": "^6.7.1",
     "@codemirror/lang-java": "^6.0.1",
+    "@codemirror/lang-markdown": "^6.5.0",
     "@codemirror/language": "^6.10.6",
     "@codemirror/search": "^6.5.8",
     "@codemirror/state": "^6.5.0",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.35.0",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "codemirror": "^6.0.1",
     "marked": "^17.0.4"
   },
   "devDependencies": {

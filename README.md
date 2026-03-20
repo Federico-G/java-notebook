@@ -25,8 +25,9 @@ Desde el ícono de engranaje en la barra superior:
 
 - **Tema**: Auto (sigue al sistema), Claro, u Oscuro
 - **Identación**: 2 o 4 espacios
+- **Modo**: Edición (todos los controles visibles) o Lectura (oculta controles de edición)
 
-La configuración se guarda en `localStorage`.
+La configuración se guarda en `localStorage`. Presionar `?` para ver los atajos de teclado disponibles.
 
 ### Limitaciones de TeaVM
 
@@ -164,11 +165,11 @@ Para que funcione, en el repo de GitHub ir a **Settings > Pages** y en Source se
 index.html              Punto de entrada (Vite entry point)
 css/notebook.css        Estilos responsive mobile-first con dark/light mode
 js/                     Lógica de la aplicación (ES modules)
-  app.js                Bootstrap, toolbar, autosave, settings, ejemplos
-  tab-manager.js        Múltiples notebooks en pestañas
-  cell-manager.js       Ciclo de vida de celdas, selección, ejecución
-  cell-renderer.js      Creación del DOM para celdas code/markdown
-  editor-setup.js       Factory de CodeMirror 6 (Java syntax, keymaps, temas)
+  app.js                Navbar, settings, shortcuts, read mode, autosave, ejemplos
+  tab-manager.js        Múltiples notebooks en pestañas, barra tabs + menú acciones
+  cell-manager.js       Ciclo de vida de celdas, selección, ejecución, mutaciones DOM
+  cell-renderer.js      Creación del DOM para celdas code/markdown (Bootstrap cards)
+  editor-setup.js       Factory de CodeMirror 6 (Java + Markdown syntax, keymaps, temas)
   notebook-model.js     Modelo de datos .ipynb (parse/serialize)
   synthetic-class.js    Envuelve snippets en clase Java compilable
   compiler-worker-proxy.js  Proxy al Web Worker del compilador
@@ -188,7 +189,8 @@ start.bat               Script de inicio para Windows
 ### Stack técnico
 
 - **[Vite](https://vite.dev/)** — build tool + dev server
-- **[Bootstrap 5](https://getbootstrap.com/)** — framework CSS + componentes JS
-- **[CodeMirror 6](https://codemirror.net/)** — editor de código con syntax highlighting Java
+- **[Bootstrap 5](https://getbootstrap.com/)** — framework CSS + componentes JS (navbar, tabs, cards, modals)
+- **[Bootstrap Icons](https://icons.getbootstrap.com/)** — íconos consistentes en toda la UI
+- **[CodeMirror 6](https://codemirror.net/)** — editor de código con syntax highlighting Java y Markdown
 - **[marked](https://marked.js.org/)** — renderizado de markdown
 - **[teavm-javac](https://github.com/konsoletyper/teavm-javac)** — compilador Java → WASM

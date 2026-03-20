@@ -74,12 +74,15 @@ export function initCompiler() {
     return initPromise;
 }
 
+let compilePromise = null;
+
 export function compile(javaSource) {
     if (!initialized) {
         return Promise.reject(new Error('Compiler not initialized'));
     }
 
-    return new Promise((resolve) => {
+    // Queue behind any in-flight compilation
+    const doCompile = () => new Promise((resolve) => {
         const diagnostics = [];
         const compileId = nextId();
 
@@ -112,6 +115,12 @@ export function compile(javaSource) {
             text: javaSource
         });
     });
+
+    compilePromise = (compilePromise || Promise.resolve())
+        .catch(() => {}) // ignore previous errors
+        .then(doCompile);
+
+    return compilePromise;
 }
 
 function addHandler(handler) {

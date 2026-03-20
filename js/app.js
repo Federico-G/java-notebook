@@ -1,7 +1,8 @@
 // app.js — Main application bootstrap
 
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+import { Modal } from 'bootstrap';
 import { createEmptyNotebook, createCell, fromJSON } from './notebook-model.js';
 import { initCompiler, setProgressCallback } from './compiler-worker-proxy.js';
 import { updateAllEditorsIndent, updateAllEditorsTheme } from './editor-setup.js';
@@ -14,10 +15,11 @@ import {
     initTabManager, createTab, switchTab, getActiveTab, getAllTabs, getActiveTabId,
     updateTabFilename
 } from './tab-manager.js';
+import { focusFirstCodeCell, focusAdjacentCell, undoDelete } from './cell-manager.js';
 
 // DOM elements
 const container = document.getElementById('notebook-container');
-const tabBar = document.getElementById('tab-bar');
+const tabActionsBar = document.getElementById('tab-actions-bar');
 const loadingOverlay = document.getElementById('loading-overlay');
 const loadingStatus = document.getElementById('loading-status');
 const btnImport = document.getElementById('btn-import');
@@ -29,8 +31,11 @@ const execManager = new ExecutionManager();
 let autosaveTimer = null;
 
 async function main() {
+    // Restore read mode before rendering
+    initReadMode();
+
     // Init tab manager
-    initTabManager(container, tabBar, execManager, onNotebookChanged, newNotebook);
+    initTabManager(container, tabActionsBar, execManager, onNotebookChanged, newNotebook);
 
     // Try to restore from localStorage
     const saved = loadTabsFromStorage();
@@ -54,15 +59,19 @@ async function main() {
     btnImport.addEventListener('click', handleImport);
     btnExport.addEventListener('click', handleExport);
 
-    // Init examples dropdown + settings
+    // Init examples dropdown + settings + shortcuts
     initExamples();
     initSettings();
+    initShortcutsModal();
+    initHelpButton();
+    initGlobalShortcuts();
 
     // Init compiler
     setProgressCallback(updateLoadingStatus);
     try {
         await initCompiler();
-        loadingOverlay.style.display = 'none';
+        loadingOverlay.classList.add('d-none');
+        focusFirstCodeCell();
     } catch (e) {
         loadingStatus.textContent = 'Failed to load compiler: ' + e.message;
         loadingStatus.classList.add('error');
@@ -121,33 +130,25 @@ function handleExport() {
 // --- Examples ---
 
 async function initExamples() {
-    const dropdown = document.getElementById('examples-dropdown');
-    const btn = document.getElementById('btn-examples');
-    const menu = document.getElementById('examples-menu');
-    if (!dropdown || !btn || !menu) return;
+    const archivoMenu = document.getElementById('archivo-menu');
+    const divider = document.getElementById('examples-divider');
+    const header = document.getElementById('examples-header');
+    if (!archivoMenu) return;
 
-    // Toggle dropdown
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menu.classList.toggle('open');
-    });
-    document.addEventListener('click', () => menu.classList.remove('open'));
-
-    // Load example index
     try {
         const resp = await fetch('examples/index.json');
         if (!resp.ok) {
-            dropdown.style.display = 'none';
+            divider?.remove();
+            header?.remove();
             return;
         }
         const examples = await resp.json();
-        menu.innerHTML = '';
         for (const ex of examples) {
+            const li = document.createElement('li');
             const item = document.createElement('button');
             item.className = 'dropdown-item';
             item.textContent = ex.name;
             item.addEventListener('click', async () => {
-                menu.classList.remove('open');
                 try {
                     const r = await fetch('examples/' + ex.filename);
                     const obj = await r.json();
@@ -157,10 +158,12 @@ async function initExamples() {
                     alert('Error al cargar ejemplo: ' + err.message);
                 }
             });
-            menu.appendChild(item);
+            li.appendChild(item);
+            archivoMenu.appendChild(li);
         }
     } catch (e) {
-        dropdown.style.display = 'none';
+        divider?.remove();
+        header?.remove();
     }
 }
 
@@ -185,6 +188,7 @@ const systemDarkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 function applyTheme(mode) {
     const isDark = mode === 'dark' || (mode === 'system' && systemDarkQuery.matches);
     document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    document.documentElement.dataset.bsTheme = isDark ? 'dark' : 'light';
     updateAllEditorsTheme(isDark);
 }
 
@@ -199,20 +203,10 @@ systemDarkQuery.addEventListener('change', () => {
 });
 
 function initSettings() {
-    const dropdown = document.getElementById('settings-dropdown');
-    const btn = document.getElementById('btn-settings');
     const menu = document.getElementById('settings-menu');
-    if (!dropdown || !btn || !menu) return;
+    if (!menu) return;
 
     const settings = getSettings();
-
-    // Toggle
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menu.classList.toggle('open');
-    });
-    document.addEventListener('click', () => menu.classList.remove('open'));
-    menu.addEventListener('click', (e) => e.stopPropagation());
 
     function updateActive() {
         menu.querySelectorAll('.settings-indent').forEach(el => {
@@ -220,6 +214,10 @@ function initSettings() {
         });
         menu.querySelectorAll('.settings-theme').forEach(el => {
             el.classList.toggle('active', (settings.theme || 'system') === el.dataset.theme);
+        });
+        const isReadMode = document.body.classList.contains('read-mode');
+        menu.querySelectorAll('.settings-mode').forEach(el => {
+            el.classList.toggle('active', el.dataset.mode === (isReadMode ? 'read' : 'edit'));
         });
     }
     updateActive();
@@ -242,6 +240,86 @@ function initSettings() {
             updateActive();
             updateAllEditorsIndent(settings.indentSize);
         });
+    });
+
+    // Mode buttons
+    menu.querySelectorAll('.settings-mode').forEach(el => {
+        el.addEventListener('click', () => {
+            const wantRead = el.dataset.mode === 'read';
+            const isRead = document.body.classList.contains('read-mode');
+            if (wantRead !== isRead) toggleReadMode();
+            updateActive();
+        });
+    });
+
+    // Sync when toggled via shortcut
+    window.addEventListener('readmode-changed', updateActive);
+}
+
+// --- Keyboard Shortcuts Modal ---
+
+function initShortcutsModal() {
+    const modalEl = document.getElementById('shortcuts-modal');
+    if (!modalEl) return;
+    const modal = new Modal(modalEl);
+    document.addEventListener('keydown', (e) => {
+        const el = document.activeElement;
+        if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' ||
+            el?.closest('.cm-editor') || el?.isContentEditable) return;
+        if (e.key === '?' || (e.shiftKey && e.code === 'Slash')) {
+            e.preventDefault();
+            modal.toggle();
+        }
+    });
+}
+
+// --- Read Mode ---
+
+export function toggleReadMode() {
+    const settings = getSettings();
+    const active = !document.body.classList.contains('read-mode');
+    document.body.classList.toggle('read-mode', active);
+    settings.readMode = active;
+    saveSettings(settings);
+    // Notify any listeners (tab-manager re-renders the toggle icon)
+    window.dispatchEvent(new CustomEvent('readmode-changed', { detail: { active } }));
+}
+
+function initReadMode() {
+    const settings = getSettings();
+    if (settings.readMode) {
+        document.body.classList.add('read-mode');
+    }
+}
+
+function initHelpButton() {
+    const btn = document.getElementById('btn-help');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const modalEl = document.getElementById('shortcuts-modal');
+        if (modalEl) Modal.getOrCreateInstance(modalEl).toggle();
+    });
+}
+
+const GLOBAL_SHORTCUTS = [
+    { key: 's', handler: () => handleExport() },
+    { key: 'ArrowUp', handler: () => focusAdjacentCell(-1) },
+    { key: 'ArrowDown', handler: () => focusAdjacentCell(1) },
+    { key: 'e', handler: () => toggleReadMode() },
+    { key: 'z', outsideEditor: true, handler: () => undoDelete() },
+];
+
+function initGlobalShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        const shortcut = GLOBAL_SHORTCUTS.find(s => s.key === e.key);
+        if (!shortcut) return;
+        if (shortcut.outsideEditor) {
+            const el = document.activeElement;
+            if (el?.closest('.cm-editor') || el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA') return;
+        }
+        e.preventDefault();
+        shortcut.handler();
     });
 }
 

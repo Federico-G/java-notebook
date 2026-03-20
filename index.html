@@ -8,54 +8,126 @@
     <link rel="stylesheet" href="css/notebook.css">
 </head>
 <body>
-    <!-- Toolbar -->
-    <header id="toolbar">
-        <h1>Java Notebook</h1>
-        <div class="toolbar-spacer"></div>
-        <button class="btn" id="btn-import">Importar</button>
-        <button class="btn" id="btn-export">Exportar</button>
-        <div class="dropdown" id="examples-dropdown">
-            <button class="btn" id="btn-examples">Ejemplos &#9662;</button>
-            <div class="dropdown-menu" id="examples-menu"></div>
-        </div>
-        <div class="dropdown" id="settings-dropdown">
-            <button class="btn" id="btn-settings">&#9881;</button>
-            <div class="dropdown-menu dropdown-menu--right" id="settings-menu">
-                <div class="settings-group">
-                    <label class="settings-label">Tema</label>
-                    <div class="settings-row">
-                        <button class="dropdown-item settings-theme" data-theme="system">Auto</button>
-                        <button class="dropdown-item settings-theme" data-theme="light">Claro</button>
-                        <button class="dropdown-item settings-theme" data-theme="dark">Oscuro</button>
+    <!-- Navbar -->
+    <nav class="navbar bg-body-secondary border-bottom sticky-top">
+        <div class="container-xxl">
+            <span class="navbar-brand mb-0 h1 fs-6 fw-semibold">Java Notebook</span>
+                <div class="d-flex ms-auto align-items-center gap-1">
+                    <div class="dropdown">
+                        <button class="btn btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-file-earmark" aria-hidden="true"></i> Archivo</button>
+                        <ul class="dropdown-menu dropdown-menu-end" id="archivo-menu">
+                            <li><button class="dropdown-item" id="btn-import"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i> Importar</button></li>
+                            <li><button class="dropdown-item" id="btn-export"><i class="bi bi-box-arrow-up" aria-hidden="true"></i> Exportar</button></li>
+                            <li id="examples-divider"><hr class="dropdown-divider"></li>
+                            <li id="examples-header" class="dropdown-header">Ejemplos</li>
+                        </ul>
+                    </div>
+                    <button class="btn btn-sm" id="btn-help" aria-label="Atajos de teclado" title="Atajos de teclado (?)">
+                        <i class="bi bi-question-circle" aria-hidden="true"></i>
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-sm" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Configuracion" title="Configuracion" aria-expanded="false">
+                            <i class="bi bi-gear" aria-hidden="true"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end p-2" id="settings-menu" style="min-width: 200px;">
+                            <div class="mb-2">
+                                <label class="form-label small fw-semibold text-body-secondary text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Tema</label>
+                                <div class="btn-group btn-group-sm w-100">
+                                    <button class="btn btn-outline-secondary settings-theme" data-theme="system">Auto</button>
+                                    <button class="btn btn-outline-secondary settings-theme" data-theme="light">Claro</button>
+                                    <button class="btn btn-outline-secondary settings-theme" data-theme="dark">Oscuro</button>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small fw-semibold text-body-secondary text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Identación</label>
+                                <div class="btn-group btn-group-sm w-100">
+                                    <button class="btn btn-outline-secondary settings-indent" data-size="2">2</button>
+                                    <button class="btn btn-outline-secondary settings-indent" data-size="4">4</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label small fw-semibold text-body-secondary text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Modo</label>
+                                <div class="btn-group btn-group-sm w-100">
+                                    <button class="btn btn-outline-secondary settings-mode" data-mode="edit"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edición</button>
+                                    <button class="btn btn-outline-secondary settings-mode" data-mode="read"><i class="bi bi-eye" aria-hidden="true"></i> Lectura</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="settings-group">
-                    <label class="settings-label">Identación</label>
-                    <div class="settings-row">
-                        <button class="dropdown-item settings-indent" data-size="2">2</button>
-                        <button class="dropdown-item settings-indent" data-size="4">4</button>
+        </div>
+    </nav>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index:1055; background:rgba(0,0,0,0.5)">
+        <div class="bg-body rounded-3 p-5 text-center shadow">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <div id="loading-status" class="fs-6">Inicializando compilador...</div>
+        </div>
+    </div>
+
+    <!-- Tab bar + notebook actions (single row) -->
+    <div id="tab-actions-bar"></div>
+
+    <!-- Scrollable notebook content -->
+    <main id="notebook-container"></main>
+
+    <!-- Keyboard shortcuts modal -->
+    <div class="modal fade" id="shortcuts-modal" tabindex="-1" aria-labelledby="shortcuts-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="shortcuts-modal-label"><i class="bi bi-keyboard" aria-hidden="true"></i> Atajos de teclado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold mb-2">Celda de codigo</h6>
+                            <table class="table table-sm table-borderless mb-3">
+                                <tbody>
+                                    <tr><td><kbd>Shift</kbd> + <kbd>Enter</kbd></td><td>Ejecutar y quedarse</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td>Ejecutar y avanzar</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></td><td>Formatear codigo</td></tr>
+                                    <tr><td><kbd>Tab</kbd></td><td>Indentar</td></tr>
+                                </tbody>
+                            </table>
+                            <h6 class="fw-semibold mb-2">Celda de markdown</h6>
+                            <table class="table table-sm table-borderless">
+                                <tbody>
+                                    <tr><td><kbd>Shift</kbd> + <kbd>Enter</kbd></td><td>Salir del modo edicion</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td>Salir y avanzar</td></tr>
+                                    <tr><td><kbd>Escape</kbd></td><td>Salir del modo edicion</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold mb-2">General</h6>
+                            <table class="table table-sm table-borderless mb-3">
+                                <tbody>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>&uarr;</kbd></td><td>Celda anterior</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>&darr;</kbd></td><td>Celda siguiente</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Deshacer eliminar celda</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>S</kbd></td><td>Exportar notebook</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>E</kbd></td><td>Modo lectura/edicion</td></tr>
+                                    <tr><td><kbd>?</kbd></td><td>Mostrar/ocultar atajos</td></tr>
+                                </tbody>
+                            </table>
+                            <h6 class="fw-semibold mb-2">Interacciones</h6>
+                            <table class="table table-sm table-borderless">
+                                <tbody>
+                                    <tr><td>Doble click en markdown</td><td>Editar celda</td></tr>
+                                    <tr><td>Doble click en pestana</td><td>Renombrar notebook</td></tr>
+                                    <tr><td>Long-press en pestana</td><td>Renombrar notebook (mobile)</td></tr>
+                                    <tr><td>Drag-drop <code>.ipynb</code></td><td>Importar notebook</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </header>
-
-    <!-- Loading overlay -->
-    <div id="loading-overlay">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <div id="loading-status">Inicializando compilador...</div>
-        </div>
     </div>
-
-    <!-- Tab bar -->
-    <nav id="tab-bar"></nav>
-
-    <!-- Notebook actions (populated by cell-manager) -->
-    <div id="notebook-actions"></div>
-
-    <!-- Scrollable notebook content -->
-    <main id="notebook-container"></main>
 
     <!-- Main app -->
     <script type="module" src="js/app.js"></script>

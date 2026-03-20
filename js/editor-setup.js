@@ -2,6 +2,7 @@
 
 import { basicSetup, EditorView } from 'codemirror';
 import { java } from '@codemirror/lang-java';
+import { markdown } from '@codemirror/lang-markdown';
 import { keymap } from '@codemirror/view';
 import { EditorState, Compartment } from '@codemirror/state';
 import { indentSelection, indentWithTab } from '@codemirror/commands';
@@ -27,6 +28,10 @@ const baseTheme = EditorView.theme({
     '.cm-scroller': { overflow: 'auto' }
 });
 
+const noGuttersTheme = EditorView.theme({
+    '.cm-gutters': { display: 'none' }
+});
+
 function makeIndentExtensions(compartment, size) {
     return compartment.of([
         indentUnit.of(' '.repeat(size)),
@@ -38,11 +43,11 @@ export function createJavaEditor(parentEl, initialDoc, callbacks) {
     const runKeymap = keymap.of([
         {
             key: 'Shift-Enter',
-            run: () => { if (callbacks.onRun) callbacks.onRun(); return true; }
+            run: () => { if (callbacks.onRunStay) callbacks.onRunStay(); return true; }
         },
         {
             key: 'Ctrl-Enter',
-            run: () => { if (callbacks.onRunStay) callbacks.onRunStay(); return true; }
+            run: () => { if (callbacks.onRun) callbacks.onRun(); return true; }
         },
         {
             key: 'Ctrl-Shift-f',
@@ -101,7 +106,7 @@ export function createMarkdownEditor(parentEl, initialDoc, callbacks) {
         },
         {
             key: 'Ctrl-Enter',
-            run: () => { if (callbacks.onRun) callbacks.onRun(); return true; }
+            run: () => { if (callbacks.onRunAdvance) callbacks.onRunAdvance(); else if (callbacks.onRun) callbacks.onRun(); return true; }
         },
         {
             key: 'Escape',
@@ -119,10 +124,12 @@ export function createMarkdownEditor(parentEl, initialDoc, callbacks) {
             keymap.of([indentWithTab]),
             basicSetup,
             search({ top: true }),
+            markdown({ codeLanguages: [{ name: 'java', support: java() }] }),
             makeIndentExtensions(indentCompartment, indent),
             updateListener,
             EditorView.lineWrapping,
             baseTheme,
+            noGuttersTheme,
             themeCompartment.of(currentDark ? oneDark : [])
         ]
     });

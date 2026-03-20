@@ -8,11 +8,11 @@ Notebook de Java 100% client-side que corre en el navegador. El compilador Java 
 index.html              → Punto de entrada (Vite entry point)
 css/notebook.css        → Estilos responsive mobile-first con dark mode
 js/
-  app.js                → Bootstrap, toolbar, autosave, settings, ejemplos
-  tab-manager.js        → Multiples notebooks en pestanas
-  cell-manager.js       → Ciclo de vida de celdas, seleccion, ejecucion
-  cell-renderer.js      → Creacion del DOM para celdas code/markdown
-  editor-setup.js       → Factory de CodeMirror 6 (Java syntax, keymaps, indent, dark theme)
+  app.js                → Bootstrap, navbar, settings, shortcuts modal, read mode, autosave, ejemplos
+  tab-manager.js        → Multiples notebooks en pestanas, barra de tabs + menu de acciones
+  cell-manager.js       → Ciclo de vida de celdas, seleccion, ejecucion, mutaciones DOM targeted
+  cell-renderer.js      → Creacion del DOM para celdas code/markdown (Bootstrap cards)
+  editor-setup.js       → Factory de CodeMirror 6 (Java syntax, Markdown syntax, keymaps, indent, dark theme)
   notebook-model.js     → Modelo de datos .ipynb (parse/serialize)
   synthetic-class.js    → Envuelve snippets de celdas en clase Java compilable
   compiler-worker-proxy.js → Proxy Promise-based al Web Worker de teavm-javac
@@ -37,11 +37,13 @@ start.bat               → Script de inicio para Windows
 ## Stack tecnico
 
 - **Vite** — build tool + dev server, resuelve dependencias desde node_modules/
-- **Bootstrap 5** via npm — framework CSS + componentes JS (sin jQuery)
-- **CodeMirror 6** via npm — editor, syntax highlighting Java, search
+- **Bootstrap 5** via npm — framework CSS + componentes JS (navbar, nav-tabs, cards, modals, dropdowns)
+- **Bootstrap Icons** via npm — iconos consistentes en toda la UI
+- **CodeMirror 6** via npm — editor, syntax highlighting Java + Markdown, search
 - **marked.js** via npm — renderizado de markdown
 - **teavm-javac** — compilador Java a WASM que corre en Web Worker
 - **@codemirror/theme-one-dark** — tema oscuro, togglable desde settings (Auto/Claro/Oscuro)
+- **@codemirror/lang-markdown** — syntax highlighting para editor de celdas markdown
 
 ## Como funciona la compilacion
 
@@ -78,8 +80,38 @@ Ver `TEAVM-LIMITATIONS.md` para la lista completa. Lo mas importante:
 Se guardan en localStorage key `java-notebook-settings`:
 - `theme`: system, light o dark (default system)
 - `indentSize`: 2 o 4 espacios (default 4)
+- `readMode`: true/false (default false) — modo lectura oculta controles de edicion
 
 Los tabs/notebooks se guardan en localStorage key `java-notebook-autosave` (formato v2 multi-tab).
+
+## Atajos de teclado
+
+| Atajo | Accion |
+|---|---|
+| Shift+Enter | Ejecutar y quedarse (code) / Salir edicion (markdown) |
+| Ctrl+Enter | Ejecutar y avanzar (code) / Salir y avanzar (markdown) |
+| Ctrl+Shift+F | Formatear codigo |
+| Ctrl+S | Exportar notebook |
+| Ctrl+E | Alternar modo lectura/edicion |
+| Ctrl+Up/Down | Navegar entre celdas |
+| Ctrl+Z | Deshacer eliminacion de celda (fuera de editor) |
+| ? | Mostrar/ocultar modal de atajos |
+| Escape | Salir de edicion markdown |
+
+## UI: Bootstrap + capa custom
+
+La UI usa componentes de Bootstrap (navbar, nav-tabs, cards, modals, dropdowns, btn-groups) con una capa CSS custom (~180 lineas) para estilos especificos del notebook:
+- Estado de celdas: `.cell--selected`, `.cell--local`, `.cell--global` (clases custom, no utilities de Bootstrap)
+- Scope: colores via CSS variables `--scope-local-color` (warning) y `--scope-global-color` (success)
+- Toolbar de markdown: floating overlay con backdrop-filter, aparece en hover
+- Add-cell-rows intermedias: altura minima, botones ghost con opacidad 0.25
+- Modo lectura: clase `.read-mode` en body oculta controles de edicion via CSS
+- Tab bar: scroll arrows en desktop (hover:hover), fade hints en mobile/touch
+- Mutaciones DOM targeted: add/delete/move celdas sin reconstruir todo el DOM
+
+## Compilacion serializada
+
+Las compilaciones se serializan via promise chain en `compiler-worker-proxy.js`. Multiples llamadas a `compile()` se encolan — el Worker solo procesa una a la vez. Esto previene crashes del WASM por acceso concurrente.
 
 ## Idioma
 
