@@ -1,5 +1,6 @@
 // tab-manager.js — Multi-tab notebook state management
 
+import { Dropdown } from 'bootstrap';
 import {
     init as initCellManager, setNotebook, getNotebook, runAll,
     addCellAfterSelected, clearAllOutputs,
@@ -276,7 +277,7 @@ function renderBar() {
     menuContainer.className = 'dropdown flex-shrink-0 ps-1 align-self-stretch d-flex';
 
     menuContainer.innerHTML = `
-        <button class="btn btn-sm align-self-stretch tab-actions-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menu">
+        <button class="btn btn-sm align-self-stretch tab-actions-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-label="Menu">
             <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
@@ -328,6 +329,15 @@ function renderBar() {
     menuContainer.addEventListener('show.bs.dropdown', () => {
         undoBtn.disabled = !hasUndoDelete();
         pasteBtn.disabled = !hasCellClipboard();
+    });
+
+    // Close dropdown after any action (needed because auto-close="outside")
+    const dropMenu = menuContainer.querySelector('.dropdown-menu');
+    const toggleBtn = menuContainer.querySelector('.tab-actions-btn');
+    dropMenu.addEventListener('click', (e) => {
+        if (e.target.closest('.dropdown-item, .btn')) {
+            Dropdown.getOrCreateInstance(toggleBtn).hide();
+        }
     });
 
     row.appendChild(menuContainer);

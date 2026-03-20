@@ -303,7 +303,7 @@ export function toggleReadMode() {
 
 function initReadMode() {
     const settings = getSettings();
-    if (settings.readMode) {
+    if (settings.readMode !== false) {
         document.body.classList.add('read-mode');
     }
 }
