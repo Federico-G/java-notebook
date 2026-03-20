@@ -176,7 +176,14 @@ function renderCellElement(cell) {
         el = renderCodeCell(cell);
         const editorContainer = el.querySelector('.cell-editor');
         const editorView = createJavaEditor(editorContainer, cell.source, {
-            onRun: () => runCell(cell.id),
+            onRun: () => runCell(cell.id).then(() => {
+                // Focus next editor since keyboard is already active
+                const i = getCellIndex(cell.id);
+                if (i >= 0 && i + 1 < notebook.cells.length) {
+                    const ns = cellStates.get(notebook.cells[i + 1].id);
+                    if (ns?.editorView) ns.editorView.focus();
+                }
+            }),
             onRunStay: () => runCell(cell.id, false),
             onChange: () => notifyChanged()
         });
@@ -501,13 +508,11 @@ export async function runCell(cellId, advanceFocus = true) {
     setCellRunning(state.el, false);
     notifyChanged();
 
-    // Advance focus to next cell
+    // Advance selection to next cell (without focusing editor to avoid mobile keyboard)
     if (advanceFocus && idx + 1 < notebook.cells.length) {
         const nextCell = notebook.cells[idx + 1];
-        const nextState = cellStates.get(nextCell.id);
-        if (nextState && nextState.editorView) {
-            nextState.editorView.focus();
-        }
+        selectCell(nextCell.id);
+        scrollToCell(nextCell.id);
     }
 }
 

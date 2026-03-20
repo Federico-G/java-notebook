@@ -212,7 +212,7 @@ function renderBar() {
 
     // Wrap tab list in a container for scroll arrows
     const tabContainer = document.createElement('div');
-    tabContainer.className = 'tab-scroll-container';
+    tabContainer.className = 'tab-scroll-container flex-grow-1';
 
     const arrowLeft = document.createElement('button');
     arrowLeft.className = 'tab-scroll-arrow tab-scroll-left';
@@ -255,10 +255,6 @@ function renderBar() {
     addBtn.addEventListener('click', () => { if (onNewTab) onNewTab(); });
     row.appendChild(addBtn);
 
-    // Spacer pushes menu to the right
-    const spacer = document.createElement('div');
-    spacer.className = 'flex-grow-1';
-    row.appendChild(spacer);
 
     // --- Notebook menu (right side) ---
     const menuContainer = document.createElement('div');

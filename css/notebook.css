@@ -414,6 +414,8 @@ body {
     .add-cell-row--visible { display: flex; }
     .navbar .btn { min-height: var(--btn-min-touch); min-width: var(--btn-min-touch); }
     .cell-output { font-size: 12px; }
+    .btn-run-text { display: none; }
+    .cell-toolbar > .badge { display: none; }
 }
 
 /* Below desktop or touch: always show markdown toolbar */

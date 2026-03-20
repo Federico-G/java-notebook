@@ -16,7 +16,7 @@ export function renderCodeCell(cell) {
     el.innerHTML = `
         <div class="card-header cell-toolbar d-flex align-items-center gap-2 py-1 px-2">
             <button class="btn btn-success btn-sm btn-run" aria-label="Ejecutar" title="Ejecutar (Shift+Enter)">
-                <span class="btn-run-label"><i class="bi bi-play-fill" aria-hidden="true"></i> Ejecutar</span>
+                <span class="btn-run-label"><i class="bi bi-play-fill" aria-hidden="true"></i><span class="btn-run-text"> Ejecutar</span></span>
                 <span class="btn-run-spinner d-none spinner-border spinner-border-sm" role="status"></span>
             </button>
             <span class="badge text-bg-secondary">Java</span>
