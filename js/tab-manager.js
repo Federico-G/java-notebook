@@ -4,7 +4,9 @@ import {
     init as initCellManager, setNotebook, getNotebook, runAll,
     addCellAfterSelected, clearAllOutputs,
     moveSelectedCell, deleteSelectedCell, undoDelete, hasUndoDelete,
-    getExecutionCounter, setExecutionCounter
+    getExecutionCounter, setExecutionCounter,
+    getLastDeleted, setLastDeleted,
+    copySelectedCell, cutSelectedCell, pasteCellAfterSelected, hasCellClipboard
 } from './cell-manager.js';
 
 
@@ -15,6 +17,7 @@ let barEl = null;
 let execManager = null;
 let onChangeCallback = null;
 let onNewTab = null;
+let resizeHandler = null;
 let idCounter = 0;
 
 function genTabId() {
@@ -40,12 +43,14 @@ export function createTab(notebook, filename) {
         filename: filename || 'notebook.ipynb',
         notebook: notebook,
         executionCounter: 0,
-        scrollTop: 0
+        scrollTop: 0,
+        lastDeleted: null
     };
     tabs.push(tab);
     activeTabId = tab.id;
 
     setExecutionCounter(0);
+    setLastDeleted(null);
     setNotebook(notebook);
     renderBar();
     onChangeCallback();
@@ -61,6 +66,7 @@ export function switchTab(tabId) {
 
     activeTabId = tabId;
     setExecutionCounter(target.executionCounter);
+    setLastDeleted(target.lastDeleted || null);
     setNotebook(target.notebook);
     containerEl.scrollTop = target.scrollTop;
 
@@ -87,6 +93,7 @@ export function closeTab(tabId) {
         activeTabId = tabs[newIdx].id;
         const target = tabs[newIdx];
         setExecutionCounter(target.executionCounter);
+        setLastDeleted(target.lastDeleted || null);
         setNotebook(target.notebook);
         containerEl.scrollTop = target.scrollTop;
     }
@@ -121,6 +128,7 @@ function saveActiveTabState() {
     if (!tab) return;
     tab.notebook = getNotebook();
     tab.executionCounter = getExecutionCounter();
+    tab.lastDeleted = getLastDeleted();
     tab.scrollTop = containerEl.scrollTop;
 }
 
@@ -212,7 +220,7 @@ function renderBar() {
 
     // Wrap tab list in a container for scroll arrows
     const tabContainer = document.createElement('div');
-    tabContainer.className = 'tab-scroll-container flex-grow-1';
+    tabContainer.className = 'tab-scroll-container';
 
     const arrowLeft = document.createElement('button');
     arrowLeft.className = 'tab-scroll-arrow tab-scroll-left';
@@ -244,6 +252,9 @@ function renderBar() {
         tabContainer.classList.toggle('scrolled-end', atEnd);
     }
     tabList.addEventListener('scroll', updateArrows);
+    if (resizeHandler) window.removeEventListener('resize', resizeHandler);
+    resizeHandler = updateArrows;
+    window.addEventListener('resize', resizeHandler);
     // Defer so layout is computed
     requestAnimationFrame(updateArrows);
 
@@ -255,6 +266,10 @@ function renderBar() {
     addBtn.addEventListener('click', () => { if (onNewTab) onNewTab(); });
     row.appendChild(addBtn);
 
+    // Spacer pushes menu to the right
+    const spacer = document.createElement('div');
+    spacer.className = 'flex-grow-1';
+    row.appendChild(spacer);
 
     // --- Notebook menu (right side) ---
     const menuContainer = document.createElement('div');
@@ -269,13 +284,25 @@ function renderBar() {
             <li><button class="dropdown-item action-run-all"><i class="bi bi-play-circle"></i> Ejecutar todos</button></li>
             <li><button class="dropdown-item action-clear-all-output"><i class="bi bi-eraser"></i> Limpiar resultados</button></li>
             <li><hr class="dropdown-divider"></li>
-            <li class="dropdown-header">Celdas</li>
-            <li><button class="dropdown-item action-add-code"><i class="bi bi-plus"></i> Codigo</button></li>
-            <li><button class="dropdown-item action-add-md"><i class="bi bi-plus"></i> Markdown</button></li>
+            <li class="dropdown-header">Agregar celda</li>
+            <li class="px-3 py-1 d-flex gap-1">
+                <button class="btn btn-outline-secondary btn-sm flex-fill action-add-code" style="padding:2px 4px"><i class="bi bi-code-slash"></i> Código</button>
+                <button class="btn btn-outline-secondary btn-sm flex-fill action-add-md" style="padding:2px 4px"><i class="bi bi-markdown"></i> Texto</button>
+            </li>
             <li><hr class="dropdown-divider"></li>
             <li class="dropdown-header">Celda seleccionada</li>
-            <li><button class="dropdown-item action-move-up"><i class="bi bi-arrow-up"></i> Subir celda</button></li>
-            <li><button class="dropdown-item action-move-down"><i class="bi bi-arrow-down"></i> Bajar celda</button></li>
+            <li class="px-3 py-1 d-flex gap-1">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary action-move-up" title="Subir"><i class="bi bi-arrow-up"></i></button>
+                    <button class="btn btn-outline-secondary action-move-down" title="Bajar"><i class="bi bi-arrow-down"></i></button>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary action-cut-cell" title="Cortar"><i class="bi bi-scissors"></i></button>
+                    <button class="btn btn-outline-secondary action-copy-cell" title="Copiar"><i class="bi bi-copy"></i></button>
+                    <button class="btn btn-outline-secondary action-paste-cell" title="Pegar" disabled><i class="bi bi-clipboard-plus"></i></button>
+                </div>
+            </li>
+            <li><hr class="dropdown-divider"></li>
             <li><button class="dropdown-item text-danger action-delete-cell"><i class="bi bi-trash"></i> Eliminar celda</button></li>
             <li><button class="dropdown-item action-undo-delete" disabled><i class="bi bi-arrow-counterclockwise"></i> Deshacer eliminar</button></li>
         </ul>
@@ -288,6 +315,11 @@ function renderBar() {
     menuContainer.querySelector('.action-move-up').addEventListener('click', () => moveSelectedCell(-1));
     menuContainer.querySelector('.action-move-down').addEventListener('click', () => moveSelectedCell(1));
     menuContainer.querySelector('.action-delete-cell').addEventListener('click', () => deleteSelectedCell());
+    menuContainer.querySelector('.action-cut-cell').addEventListener('click', () => cutSelectedCell());
+    menuContainer.querySelector('.action-copy-cell').addEventListener('click', () => copySelectedCell());
+
+    const pasteBtn = menuContainer.querySelector('.action-paste-cell');
+    pasteBtn.addEventListener('click', () => pasteCellAfterSelected());
 
     const undoBtn = menuContainer.querySelector('.action-undo-delete');
     undoBtn.addEventListener('click', () => { undoDelete(); undoBtn.disabled = true; });
@@ -295,6 +327,7 @@ function renderBar() {
     // Update disabled state each time dropdown opens
     menuContainer.addEventListener('show.bs.dropdown', () => {
         undoBtn.disabled = !hasUndoDelete();
+        pasteBtn.disabled = !hasCellClipboard();
     });
 
     row.appendChild(menuContainer);

@@ -66,6 +66,7 @@ start.bat               → Script de inicio para Windows
 - Worker → Main: `{ command: "ok", id }`
 - Main → Worker: `{ command: "compile", id, text }`
 - Worker → Main: `{ command: "compilation-complete", id, status, script }`
+- Worker → Main: `{ command: "worker-error", message }` (crash/WASM trap — proxy auto-recovers)
 
 ## Limitaciones de TeaVM
 
@@ -81,22 +82,41 @@ Se guardan en localStorage key `java-notebook-settings`:
 - `theme`: system, light o dark (default system)
 - `indentSize`: 2 o 4 espacios (default 4)
 - `readMode`: true/false (default false) — modo lectura oculta controles de edicion
+- `shortcuts`: true/false (default false) — habilita atajos idle (cut/copy/paste/delete/undo celda)
 
-Los tabs/notebooks se guardan en localStorage key `java-notebook-autosave` (formato v2 multi-tab).
+Los tabs/notebooks se guardan en localStorage key `java-notebook-autosave` (formato multi-tab).
 
 ## Atajos de teclado
+
+Hay dos categorias de atajos globales (Ctrl+key):
+
+**Always-on** — funcionan siempre, incluso dentro del editor (bloqueados solo por modals/dropdowns):
+
+| Atajo | Accion |
+|---|---|
+| Ctrl+S | Exportar notebook |
+| Ctrl+E | Alternar modo lectura/edicion |
+| Ctrl+Up/Down | Navegar entre celdas |
+
+**Idle-only** — requieren foco fuera del editor + setting "Atajos generales" habilitado:
+
+| Atajo | Accion |
+|---|---|
+| Ctrl+X | Cortar celda |
+| Ctrl+C | Copiar celda |
+| Ctrl+V | Pegar celda |
+| Ctrl+Delete | Eliminar celda |
+| Ctrl+Z | Deshacer eliminacion de celda |
+
+**Atajos de editor** (dentro de CodeMirror, no dependen del setting):
 
 | Atajo | Accion |
 |---|---|
 | Shift+Enter | Ejecutar y quedarse (code) / Salir edicion (markdown) |
 | Ctrl+Enter | Ejecutar y avanzar (code) / Salir y avanzar (markdown) |
 | Ctrl+Shift+F | Formatear codigo |
-| Ctrl+S | Exportar notebook |
-| Ctrl+E | Alternar modo lectura/edicion |
-| Ctrl+Up/Down | Navegar entre celdas |
-| Ctrl+Z | Deshacer eliminacion de celda (fuera de editor) |
-| ? | Mostrar/ocultar modal de atajos |
 | Escape | Salir de edicion markdown |
+| ? | Mostrar/ocultar modal de atajos (fuera de editor) |
 
 ## UI: Bootstrap + capa custom
 
@@ -109,9 +129,14 @@ La UI usa componentes de Bootstrap (navbar, nav-tabs, cards, modals, dropdowns, 
 - Tab bar: scroll arrows en desktop (hover:hover), fade hints en mobile/touch
 - Mutaciones DOM targeted: add/delete/move celdas sin reconstruir todo el DOM
 
-## Compilacion serializada
+## Compilacion serializada y resiliencia
 
-Las compilaciones se serializan via promise chain en `compiler-worker-proxy.js`. Multiples llamadas a `compile()` se encolan — el Worker solo procesa una a la vez. Esto previene crashes del WASM por acceso concurrente.
+Las compilaciones se serializan via promise chain en `compiler-worker-proxy.js`. Multiples llamadas a `compile()` se encolan — el Worker solo procesa una a la vez. Cada compilacion tiene timeout de 30s. Si el Worker crashea (WASM trap), el proxy rechaza la compilacion pendiente y reinicializa el Worker automaticamente. El Worker reporta crashes via `{ command: "worker-error" }`. El iframe de ejecucion tiene error handlers globales como safety net para errores WASM que escapen del try/catch.
+
+## Clipboard y undo por tab
+
+- **Clipboard de celda** (`cellClipboard` en cell-manager.js): global, no por tab. Cut/copy/paste funcionan entre tabs.
+- **Undo delete** (`lastDeleted`): per-tab, se guarda/restaura en el objeto tab durante switch/close. Ctrl+Z solo restaura celdas eliminadas en el tab activo.
 
 ## Idioma
 

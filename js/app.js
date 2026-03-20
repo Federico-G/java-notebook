@@ -15,7 +15,11 @@ import {
     initTabManager, createTab, switchTab, getActiveTab, getAllTabs, getActiveTabId,
     updateTabFilename
 } from './tab-manager.js';
-import { focusFirstCodeCell, focusAdjacentCell, undoDelete } from './cell-manager.js';
+import {
+    focusFirstCodeCell, focusAdjacentCell, undoDelete,
+    copySelectedCell, cutSelectedCell, pasteCellAfterSelected,
+    deleteSelectedCell
+} from './cell-manager.js';
 
 // DOM elements
 const container = document.getElementById('notebook-container');
@@ -219,6 +223,9 @@ function initSettings() {
         menu.querySelectorAll('.settings-mode').forEach(el => {
             el.classList.toggle('active', el.dataset.mode === (isReadMode ? 'read' : 'edit'));
         });
+        menu.querySelectorAll('.settings-shortcuts').forEach(el => {
+            el.classList.toggle('active', (el.dataset.enabled === 'true') === !!settings.shortcuts);
+        });
     }
     updateActive();
 
@@ -248,6 +255,15 @@ function initSettings() {
             const wantRead = el.dataset.mode === 'read';
             const isRead = document.body.classList.contains('read-mode');
             if (wantRead !== isRead) toggleReadMode();
+            updateActive();
+        });
+    });
+
+    // Shortcuts toggle
+    menu.querySelectorAll('.settings-shortcuts').forEach(el => {
+        el.addEventListener('click', () => {
+            settings.shortcuts = el.dataset.enabled === 'true';
+            saveSettings(settings);
             updateActive();
         });
     });
@@ -301,25 +317,51 @@ function initHelpButton() {
     });
 }
 
-const GLOBAL_SHORTCUTS = [
+// Always-on: work even inside editors (blocked only by modals/dropdowns)
+const ALWAYS_SHORTCUTS = [
     { key: 's', handler: () => handleExport() },
     { key: 'ArrowUp', handler: () => focusAdjacentCell(-1) },
     { key: 'ArrowDown', handler: () => focusAdjacentCell(1) },
     { key: 'e', handler: () => toggleReadMode() },
-    { key: 'z', outsideEditor: true, handler: () => undoDelete() },
 ];
+
+// Idle-only: require focus outside editor + shortcuts setting enabled
+const IDLE_SHORTCUTS = [
+    { key: 'z', handler: () => undoDelete() },
+    { key: 'x', handler: () => cutSelectedCell() },
+    { key: 'c', handler: () => copySelectedCell() },
+    { key: 'v', handler: () => pasteCellAfterSelected() },
+    { key: 'Delete', handler: () => deleteSelectedCell() },
+];
+
+function hasOverlayOpen() {
+    return !!document.querySelector('.modal.show') || !!document.querySelector('.dropdown-menu.show');
+}
+
+function isOutsideEditor() {
+    const el = document.activeElement;
+    return !(el?.closest('.cm-editor') || el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA');
+}
 
 function initGlobalShortcuts() {
     document.addEventListener('keydown', (e) => {
         if (!(e.ctrlKey || e.metaKey)) return;
-        const shortcut = GLOBAL_SHORTCUTS.find(s => s.key === e.key);
-        if (!shortcut) return;
-        if (shortcut.outsideEditor) {
-            const el = document.activeElement;
-            if (el?.closest('.cm-editor') || el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA') return;
+        if (hasOverlayOpen()) return;
+
+        const always = ALWAYS_SHORTCUTS.find(s => s.key === e.key);
+        if (always) {
+            e.preventDefault();
+            always.handler();
+            return;
         }
-        e.preventDefault();
-        shortcut.handler();
+
+        if (!isOutsideEditor()) return;
+        if (!getSettings().shortcuts) return;
+        const idle = IDLE_SHORTCUTS.find(s => s.key === e.key);
+        if (idle) {
+            e.preventDefault();
+            idle.handler();
+        }
     });
 }
 

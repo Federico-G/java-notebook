@@ -11,12 +11,12 @@
 </head>
 <body>
     <!-- Navbar -->
-    <nav class="navbar bg-body-secondary border-bottom sticky-top">
+    <nav class="navbar bg-body-secondary border-bottom">
         <div class="container-xxl">
             <span class="navbar-brand mb-0 h1 fs-6 fw-semibold">Java Notebook</span>
                 <div class="d-flex ms-auto align-items-center gap-1">
                     <div class="dropdown">
-                        <button class="btn btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-file-earmark" aria-hidden="true"></i> Archivo</button>
+                        <button class="btn btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-file-earmark" aria-hidden="true"></i> <span class="navbar-label">Archivo</span></button>
                         <ul class="dropdown-menu dropdown-menu-end" id="archivo-menu">
                             <li><button class="dropdown-item" id="btn-import"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i> Importar</button></li>
                             <li><button class="dropdown-item" id="btn-export"><i class="bi bi-box-arrow-up" aria-hidden="true"></i> Exportar</button></li>
@@ -47,11 +47,18 @@
                                     <button class="btn btn-outline-secondary settings-indent" data-size="4">4</button>
                                 </div>
                             </div>
-                            <div>
+                            <div class="mb-2">
                                 <label class="form-label small fw-semibold text-body-secondary text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Modo</label>
                                 <div class="btn-group btn-group-sm w-100">
                                     <button class="btn btn-outline-secondary settings-mode" data-mode="edit"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edición</button>
                                     <button class="btn btn-outline-secondary settings-mode" data-mode="read"><i class="bi bi-eye" aria-hidden="true"></i> Lectura</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label small fw-semibold text-body-secondary text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Atajos generales</label>
+                                <div class="btn-group btn-group-sm w-100">
+                                    <button class="btn btn-outline-secondary settings-shortcuts" data-enabled="true"><i class="bi bi-keyboard" aria-hidden="true"></i> On</button>
+                                    <button class="btn btn-outline-secondary settings-shortcuts" data-enabled="false">Off</button>
                                 </div>
                             </div>
                         </div>
@@ -85,6 +92,32 @@
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6">
+                            <h6 class="fw-semibold mb-2">General</h6>
+                            <table class="table table-sm table-borderless mb-3">
+                                <tbody>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>&uarr;</kbd></td><td>Celda anterior</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>&darr;</kbd></td><td>Celda siguiente</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>X</kbd></td><td>Cortar celda</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>C</kbd></td><td>Copiar celda</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>V</kbd></td><td>Pegar celda</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>Supr</kbd></td><td>Eliminar celda</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Deshacer eliminar celda</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>S</kbd></td><td>Exportar notebook</td></tr>
+                                    <tr><td><kbd>Ctrl</kbd> + <kbd>E</kbd></td><td>Modo lectura/edicion</td></tr>
+                                    <tr><td><kbd>?</kbd></td><td>Mostrar/ocultar atajos</td></tr>
+                                </tbody>
+                            </table>
+                            <h6 class="fw-semibold mb-2">Interacciones</h6>
+                            <table class="table table-sm table-borderless">
+                                <tbody>
+                                    <tr><td>Doble click en markdown</td><td>Editar celda</td></tr>
+                                    <tr><td>Doble click en pestana</td><td>Renombrar notebook</td></tr>
+                                    <tr><td>Long-press en pestana</td><td>Renombrar notebook (mobile)</td></tr>
+                                    <tr><td>Drag-drop <code>.ipynb</code></td><td>Importar notebook</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
                             <h6 class="fw-semibold mb-2">Celda de codigo</h6>
                             <table class="table table-sm table-borderless mb-3">
                                 <tbody>
@@ -99,29 +132,6 @@
                                 <tbody>
                                     <tr><td><kbd>Shift</kbd> + <kbd>Enter</kbd></td><td>Salir del modo edicion</td></tr>
                                     <tr><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td>Salir y avanzar</td></tr>
-                                    <tr><td><kbd>Escape</kbd></td><td>Salir del modo edicion</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="fw-semibold mb-2">General</h6>
-                            <table class="table table-sm table-borderless mb-3">
-                                <tbody>
-                                    <tr><td><kbd>Ctrl</kbd> + <kbd>&uarr;</kbd></td><td>Celda anterior</td></tr>
-                                    <tr><td><kbd>Ctrl</kbd> + <kbd>&darr;</kbd></td><td>Celda siguiente</td></tr>
-                                    <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Deshacer eliminar celda</td></tr>
-                                    <tr><td><kbd>Ctrl</kbd> + <kbd>S</kbd></td><td>Exportar notebook</td></tr>
-                                    <tr><td><kbd>Ctrl</kbd> + <kbd>E</kbd></td><td>Modo lectura/edicion</td></tr>
-                                    <tr><td><kbd>?</kbd></td><td>Mostrar/ocultar atajos</td></tr>
-                                </tbody>
-                            </table>
-                            <h6 class="fw-semibold mb-2">Interacciones</h6>
-                            <table class="table table-sm table-borderless">
-                                <tbody>
-                                    <tr><td>Doble click en markdown</td><td>Editar celda</td></tr>
-                                    <tr><td>Doble click en pestana</td><td>Renombrar notebook</td></tr>
-                                    <tr><td>Long-press en pestana</td><td>Renombrar notebook (mobile)</td></tr>
-                                    <tr><td>Drag-drop <code>.ipynb</code></td><td>Importar notebook</td></tr>
                                 </tbody>
                             </table>
                         </div>

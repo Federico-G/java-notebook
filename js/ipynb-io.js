@@ -73,7 +73,6 @@ const STORAGE_KEY = 'java-notebook-autosave';
 export function saveAllTabsToStorage(tabs, activeTabId) {
     try {
         const data = {
-            version: 2,
             activeTabId,
             tabs: tabs.map(t => ({
                 id: t.id,
@@ -92,28 +91,15 @@ export function loadTabsFromStorage() {
         const json = localStorage.getItem(STORAGE_KEY);
         if (!json) return null;
         const data = JSON.parse(json);
-
-        // v2 multi-tab format
-        if (data.version === 2 && Array.isArray(data.tabs)) {
-            return {
-                activeTabId: data.activeTabId,
-                tabs: data.tabs.map(t => ({
-                    id: t.id,
-                    filename: t.filename,
-                    notebook: fromJSON(t.notebook)
-                }))
-            };
-        }
-
-        // v1 migration: raw notebook object
-        if (data.nbformat) {
-            return {
-                activeTabId: null,
-                tabs: [{ id: null, filename: 'notebook.ipynb', notebook: fromJSON(data) }]
-            };
-        }
-
-        return null;
+        if (!Array.isArray(data.tabs)) return null;
+        return {
+            activeTabId: data.activeTabId,
+            tabs: data.tabs.map(t => ({
+                id: t.id,
+                filename: t.filename,
+                notebook: fromJSON(t.notebook)
+            }))
+        };
     } catch (e) {
         return null;
     }

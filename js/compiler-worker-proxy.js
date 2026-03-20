@@ -14,6 +14,7 @@ let initPromise = null;
 let messageHandlers = [];
 let onProgress = null;
 let msgIdCounter = 0;
+let pendingCompileReject = null;
 
 function nextId() {
     return 'msg-' + (msgIdCounter++);
@@ -35,7 +36,13 @@ export function initCompiler() {
         });
 
         worker.addEventListener('error', (event) => {
-            reject(new Error('Worker error: ' + event.message));
+            event.preventDefault();
+            const msg = event.message || 'Worker error';
+            if (!initialized) {
+                reject(new Error(msg));
+            } else {
+                handleWorkerCrash(msg);
+            }
         });
 
         // Wait for "initialized", then load classlibs
@@ -78,13 +85,23 @@ let compilePromise = null;
 
 export function compile(javaSource) {
     if (!initialized) {
+        if (initPromise) {
+            return initPromise.then(() => compile(javaSource));
+        }
         return Promise.reject(new Error('Compiler not initialized'));
     }
 
     // Queue behind any in-flight compilation
-    const doCompile = () => new Promise((resolve) => {
+    const doCompile = () => new Promise((resolve, reject) => {
+        pendingCompileReject = reject;
         const diagnostics = [];
         const compileId = nextId();
+
+        const compileTimeout = setTimeout(() => {
+            pendingCompileReject = null;
+            removeHandler(resultHandler);
+            reject(new Error('La compilacion excedio el tiempo limite'));
+        }, 30000);
 
         const resultHandler = (msg) => {
             if (msg.id !== compileId) return;
@@ -99,6 +116,8 @@ export function compile(javaSource) {
                     fileName: msg.fileName
                 });
             } else if (msg.command === 'compilation-complete') {
+                clearTimeout(compileTimeout);
+                pendingCompileReject = null;
                 removeHandler(resultHandler);
                 resolve({
                     success: msg.status === 'successful',
@@ -131,7 +150,27 @@ function removeHandler(handler) {
     messageHandlers = messageHandlers.filter(h => h !== handler);
 }
 
+function handleWorkerCrash(msg) {
+    const reject = pendingCompileReject;
+    pendingCompileReject = null;
+    messageHandlers = [];
+    initialized = false;
+    initPromise = null;
+    compilePromise = null;
+
+    if (reject) {
+        reject(new Error(msg));
+    }
+
+    // Auto-recover: reinitialize the worker
+    initCompiler().catch(() => {});
+}
+
 function handleMessage(msg) {
+    if (msg.command === 'worker-error') {
+        handleWorkerCrash(msg.message || 'Error interno del compilador');
+        return;
+    }
     for (const handler of [...messageHandlers]) {
         handler(msg);
     }

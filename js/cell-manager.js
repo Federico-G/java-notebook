@@ -20,6 +20,7 @@ let onNotebookChanged = null;
 let activeMarkdownCellId = null;
 let selectedCellId = null;
 let lastDeleted = null; // { cell, index } for single-level undo
+let cellClipboard = null; // { cell_type, source, metadata } — global across tabs
 
 function selectCell(cellId) {
     if (selectedCellId === cellId) return;
@@ -580,6 +581,44 @@ export function undoDelete() {
 }
 
 export function hasUndoDelete() { return lastDeleted !== null; }
+
+export function getLastDeleted() { return lastDeleted; }
+export function setLastDeleted(val) { lastDeleted = val; }
+
+export function copySelectedCell() {
+    if (!selectedCellId) return false;
+    syncAllEditors();
+    const cell = notebook.cells.find(c => c.id === selectedCellId);
+    if (!cell) return false;
+    cellClipboard = {
+        cell_type: cell.cell_type,
+        source: cell.source,
+        metadata: { ...cell.metadata }
+    };
+    return true;
+}
+
+export function cutSelectedCell() {
+    if (!copySelectedCell()) return false;
+    deleteCell(selectedCellId);
+    return true;
+}
+
+export function pasteCellAfterSelected() {
+    if (!cellClipboard) return false;
+    syncAllEditors();
+    let idx = notebook.cells.length;
+    if (selectedCellId) {
+        const selIdx = getCellIndex(selectedCellId);
+        if (selIdx >= 0) idx = selIdx + 1;
+    }
+    const cell = createCell(cellClipboard.cell_type, cellClipboard.source);
+    cell.metadata = { ...cellClipboard.metadata };
+    addCell(idx, cell.cell_type, cell);
+    return true;
+}
+
+export function hasCellClipboard() { return cellClipboard !== null; }
 
 export function getExecutionCounter() { return executionCounter; }
 export function setExecutionCounter(n) { executionCounter = n; }

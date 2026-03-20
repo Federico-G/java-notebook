@@ -8,9 +8,36 @@ import { load } from '../teavm/compiler.wasm-runtime.js';
 
 Error.stackTraceLimit = 100;
 
+// Safety net for WASM traps that escape try/catch
+let executionFinished = false;
+
+window.addEventListener('error', (event) => {
+    if (executionFinished) return;
+    event.preventDefault();
+    executionFinished = true;
+    try {
+        flushBuffers();
+        window.parent.postMessage({ command: "stderr", line: "Runtime error: " + (event.error?.message || event.message) }, "*");
+        window.parent.postMessage({ status: "failed", errorMessage: event.error?.message || event.message }, "*");
+    } catch (e) { /* ignore */ }
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    if (executionFinished) return;
+    event.preventDefault();
+    executionFinished = true;
+    const msg = event.reason?.message || String(event.reason);
+    try {
+        flushBuffers();
+        window.parent.postMessage({ command: "stderr", line: "Runtime error: " + msg }, "*");
+        window.parent.postMessage({ status: "failed", errorMessage: msg }, "*");
+    } catch (e) { /* ignore */ }
+});
+
 window.addEventListener("message", async function(event) {
     let request = event.data;
     if (!request || !request.code) return;
+    executionFinished = false;
 
     let module;
     try {
@@ -25,6 +52,7 @@ window.addEventListener("message", async function(event) {
         });
     } catch (e) {
         event.source.postMessage({ status: "failed", errorMessage: e.message }, "*");
+        executionFinished = true;
         return;
     }
 
@@ -38,9 +66,12 @@ window.addEventListener("message", async function(event) {
         event.source.postMessage({ command: "stderr", line: "Runtime error: " + e.message }, "*");
     }
 
-    // Flush any remaining buffered output
-    flushBuffers();
-    event.source.postMessage({ status: "complete" }, "*");
+    if (!executionFinished) {
+        // Flush any remaining buffered output
+        flushBuffers();
+        event.source.postMessage({ status: "complete" }, "*");
+        executionFinished = true;
+    }
 });
 
 export function start() {

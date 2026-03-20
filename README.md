@@ -26,6 +26,7 @@ Desde el ícono de engranaje en la barra superior:
 - **Tema**: Auto (sigue al sistema), Claro, u Oscuro
 - **Identación**: 2 o 4 espacios
 - **Modo**: Edición (todos los controles visibles) o Lectura (oculta controles de edición)
+- **Atajos generales**: On/Off (default Off) — habilita Ctrl+X/C/V/Z/Delete para cortar, copiar, pegar, deshacer y eliminar celdas cuando el foco está fuera del editor
 
 La configuración se guarda en `localStorage`. Presionar `?` para ver los atajos de teclado disponibles.
 
