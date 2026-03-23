@@ -2,13 +2,11 @@
 
 import { marked } from 'marked';
 
-const renderer = new marked.Renderer();
-const defaultLinkRenderer = renderer.link.bind(renderer);
-renderer.link = function (args) {
-    const html = defaultLinkRenderer(args);
-    return html.replace('<a ', '<a target="_blank" rel="noopener" ');
-};
-marked.use({ renderer });
+marked.use({ hooks: {
+    postprocess(html) {
+        return html.replace(/<a href="/g, '<a target="_blank" rel="noopener" href="');
+    }
+} });
 
 function renderIconButton({ icon, label, variant = 'outline-secondary', size = 'sm', cls = '' }) {
     return `<button class="btn btn-${variant} btn-${size} ${cls}" aria-label="${label}" title="${label}">` +
