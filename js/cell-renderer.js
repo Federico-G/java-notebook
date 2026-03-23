@@ -12,7 +12,6 @@ export function renderCodeCell(cell) {
     el.className = 'card cell cell--code mb-2';
     el.dataset.cellId = cell.id;
 
-    const scope = cell.metadata.scope || 'local';
     el.innerHTML = `
         <div class="card-header cell-toolbar d-flex align-items-center gap-2 py-1 px-2">
             <button class="btn btn-success btn-sm btn-run" aria-label="Ejecutar" title="Ejecutar (Shift+Enter)">
@@ -23,7 +22,6 @@ export function renderCodeCell(cell) {
             <span class="text-body-secondary font-monospace small execution-count"></span>
             <span class="text-body-secondary small execution-time"></span>
             <div class="cell-actions ms-auto d-flex gap-1">
-                <button class="btn btn-sm btn-scope" aria-label="Alternar alcance" title="Alternar alcance">${scope === 'global' ? 'Global' : 'Local'}</button>
                 ${renderIconButton({ icon: 'arrow-up', label: 'Subir', cls: 'btn-move-up' })}
                 ${renderIconButton({ icon: 'arrow-down', label: 'Bajar', cls: 'btn-move-down' })}
                 ${renderIconButton({ icon: 'x-lg', label: 'Eliminar', variant: 'outline-danger', cls: 'btn-delete' })}

@@ -1,19 +1,18 @@
 // cell-manager.js — Bridges the notebook model and DOM, handles cell lifecycle
 
 import { createCell } from './notebook-model.js';
-import { createJavaEditor, createMarkdownEditor, formatEditor } from './editor-setup.js';
+import { createJavaEditor, createMarkdownEditor } from './editor-setup.js';
 import {
     renderCodeCell, renderMarkdownCell, renderAddCellButton,
-    clearOutput, appendOutputLine, showDiagnostics,
+    clearOutput, appendOutputLine,
     setCellRunning, updateExecutionCount, updateExecutionTime
 } from './cell-renderer.js';
-import { buildSyntheticClass, mapLineToCell, CELL_MARKER_PREFIX } from './synthetic-class.js';
-import { compile, isReady } from './compiler-worker-proxy.js';
+import { evalCode, resetSession, isReady } from './jshell-proxy.js';
 import { marked } from 'marked';
 
 let notebook = null;
 let containerEl = null;
-let executionMgr = null;
+let activeTabId = null;
 let cellStates = new Map(); // cellId -> { editorView, el, exitMarkdownEdit? }
 let executionCounter = 0;
 let onNotebookChanged = null;
@@ -52,10 +51,9 @@ function closeActiveMarkdownEditor() {
     }
 }
 
-export function init(notebookRef, container, execManager, onChange) {
+export function init(notebookRef, container, onChange) {
     notebook = notebookRef;
     containerEl = container;
-    executionMgr = execManager;
     onNotebookChanged = onChange;
     if (notebook) renderAll();
 
@@ -79,13 +77,14 @@ export function init(notebookRef, container, execManager, onChange) {
     });
 }
 
-export function setNotebook(newNotebook) {
+export function setNotebook(newNotebook, tabId) {
     // Destroy existing editors
     for (const [, state] of cellStates) {
         if (state.editorView) state.editorView.destroy();
     }
     cellStates.clear();
     notebook = newNotebook;
+    if (tabId !== undefined) activeTabId = tabId;
     executionCounter = 0;
     renderAll();
 }
@@ -299,24 +298,6 @@ function bindCellButtons(el, cell) {
         if (text) navigator.clipboard.writeText(text);
     });
 
-    const scopeBtn = el.querySelector('.btn-scope');
-    if (scopeBtn) {
-        const applyScopeStyle = () => {
-            const isLocal = (cell.metadata.scope || 'local') === 'local';
-            el.classList.toggle('cell--local', isLocal);
-            el.classList.toggle('cell--global', !isLocal);
-            scopeBtn.classList.toggle('btn-outline-warning', isLocal);
-            scopeBtn.classList.toggle('btn-outline-success', !isLocal);
-        };
-        scopeBtn.addEventListener('click', () => {
-            const isGlobal = (cell.metadata.scope || 'local') === 'global';
-            cell.metadata.scope = isGlobal ? 'local' : 'global';
-            scopeBtn.textContent = cell.metadata.scope === 'global' ? 'Global' : 'Local';
-            applyScopeStyle();
-            notifyChanged();
-        });
-        applyScopeStyle();
-    }
 }
 
 function addCell(index, type, existingCell = null) {
@@ -410,7 +391,7 @@ function moveCell(cellId, direction) {
 
 export async function runCell(cellId, advanceFocus = true) {
     if (!isReady()) {
-        alert('El compilador aun esta cargando. Por favor espera.');
+        alert('Java aun esta cargando. Por favor espera.');
         return;
     }
     syncAllEditors();
@@ -422,86 +403,27 @@ export async function runCell(cellId, advanceFocus = true) {
     const state = cellStates.get(cellId);
     if (!state) return;
 
-    // Clear previous output
     clearOutput(state.el);
     setCellRunning(state.el, true);
     updateExecutionTime(state.el, null);
 
-    // Local cells run completely independently; global cells include all globals before them
-    const isLocal = (cell.metadata.scope || 'local') === 'local';
-    const codeCells = isLocal
-        ? [cell]
-        : notebook.cells.slice(0, idx + 1).filter(c =>
-            c.cell_type === 'code' && (c.id === cellId || (c.metadata.scope || 'local') === 'global')
-        );
-    const sources = codeCells.map(c => {
-        const cs = cellStates.get(c.id);
-        return cs && cs.editorView ? cs.editorView.state.doc.toString() : c.source;
-    });
-
-    // Build synthetic class
-    const javaSource = buildSyntheticClass(sources);
+    const source = state.editorView
+        ? state.editorView.state.doc.toString()
+        : cell.source;
 
     try {
-        // Compile
-        const result = await compile(javaSource);
+        const result = await evalCode(activeTabId, source);
 
-        if (!result.success || !result.script) {
-            // Map diagnostics back to cells
-            const mappedDiags = (result.diagnostics || []).map(d => {
-                const mapped = mapLineToCell(d.lineNumber, sources);
-                return {
-                    ...d,
-                    lineNumber: mapped ? mapped.lineInCell : d.lineNumber,
-                    cellIndex: mapped ? mapped.cellIndex : null
-                };
-            });
-
-            // Show diagnostics on the relevant cells
-            const cellDiags = mappedDiags.filter(d => d.cellIndex === codeCells.length - 1 || d.cellIndex === null);
-            showDiagnostics(state.el, cellDiags);
-
-            // Also show diagnostics on other cells if applicable
-            for (const d of mappedDiags) {
-                if (d.cellIndex !== null && d.cellIndex !== codeCells.length - 1) {
-                    const otherCell = codeCells[d.cellIndex];
-                    const otherState = cellStates.get(otherCell.id);
-                    if (otherState) showDiagnostics(otherState.el, [d]);
-                }
-            }
-
-            setCellRunning(state.el, false);
-            return;
+        for (const line of result.output) {
+            appendOutputLine(state.el, 'stdout', line);
         }
-
-        // Execute the compiled WASM — only show output from the current cell
-        const targetCellIndex = codeCells.length - 1;
-        let currentCellIndex = -1;
-        let sawMarker = false;
-
-        const execStartTime = performance.now();
-        const execResult = await executionMgr.execute(
-            result.script,
-            (stream, line) => {
-                if (stream === 'stdout' && line.startsWith(CELL_MARKER_PREFIX)) {
-                    currentCellIndex = parseInt(line.slice(CELL_MARKER_PREFIX.length), 10);
-                    sawMarker = true;
-                    return;
-                }
-                // If markers are working, filter by cell; otherwise show everything
-                if (!sawMarker || currentCellIndex === targetCellIndex) {
-                    appendOutputLine(state.el, stream, line);
-                }
-            }
-        );
-
-        if (execResult.error) {
-            appendOutputLine(state.el, 'stderr', execResult.error);
+        for (const line of result.errors) {
+            appendOutputLine(state.el, 'stderr', line);
         }
 
         executionCounter++;
         updateExecutionCount(state.el, executionCounter);
-        updateExecutionTime(state.el, Math.round(performance.now() - execStartTime));
+        updateExecutionTime(state.el, result.timeMs);
     } catch (e) {
         appendOutputLine(state.el, 'stderr', 'Error: ' + e.message);
     }
@@ -509,7 +431,6 @@ export async function runCell(cellId, advanceFocus = true) {
     setCellRunning(state.el, false);
     notifyChanged();
 
-    // Advance selection to next cell (without focusing editor to avoid mobile keyboard)
     if (advanceFocus && idx + 1 < notebook.cells.length) {
         const nextCell = notebook.cells[idx + 1];
         selectCell(nextCell.id);
@@ -519,10 +440,19 @@ export async function runCell(cellId, advanceFocus = true) {
 
 export async function runAll() {
     syncAllEditors();
+    await resetSession(activeTabId);
+    executionCounter = 0;
+    clearAllOutputs();
     const codeCells = notebook.cells.filter(c => c.cell_type === 'code');
     for (const cell of codeCells) {
         await runCell(cell.id, false);
     }
+}
+
+export async function resetCurrentSession() {
+    await resetSession(activeTabId);
+    executionCounter = 0;
+    clearAllOutputs();
 }
 
 

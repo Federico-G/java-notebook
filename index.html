@@ -9,6 +9,7 @@
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="stylesheet" href="css/notebook.css">
+    <script src="https://cjrtnc.leaningtech.com/4.2/loader.js"></script>
     <script>if (new URLSearchParams(location.search).has('eruda')) { document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/eruda"><\/scr'+'ipt>'); }</script>
     <script>if (window.eruda) eruda.init();</script>
 </head>
@@ -74,7 +75,7 @@
     <div id="loading-overlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index:1055; background:rgba(0,0,0,0.5)">
         <div class="bg-body rounded-3 p-5 text-center shadow">
             <div class="spinner-border text-primary mb-3" role="status"></div>
-            <div id="loading-status" class="fs-6">Inicializando compilador...</div>
+            <div id="loading-status" class="fs-6">Inicializando Java...</div>
         </div>
     </div>
 
@@ -139,10 +140,29 @@
                             </table>
                         </div>
                     </div>
+                    <hr class="my-3">
+                    <div class="small text-body-secondary">
+                        <p class="mb-2"><strong>Java Notebook</strong> — Java 17 100% en el navegador, sin servidor.</p>
+                        <p class="mb-2">
+                            <a href="https://github.com/Federico-G/java-notebook" target="_blank" rel="noopener" class="text-body-secondary"><i class="bi bi-github"></i> Codigo fuente en GitHub</a>
+                        </p>
+                        <p class="mb-1"><strong>Tecnologias</strong></p>
+                        <ul class="mb-2" style="padding-left: 1.2rem;">
+                            <li><a href="https://cheerpj.com/" target="_blank" rel="noopener" class="text-body-secondary">CheerpJ</a> — JVM en WebAssembly (<a href="https://labs.leaningtech.com/cheerpj3/licensing" target="_blank" rel="noopener" class="text-body-secondary">Community License</a>)</li>
+                            <li><a href="https://adoptium.net/" target="_blank" rel="noopener" class="text-body-secondary">Eclipse Temurin</a> — JDK 17 (GPLv2 + Classpath Exception)</li>
+                            <li><a href="https://codemirror.net/" target="_blank" rel="noopener" class="text-body-secondary">CodeMirror 6</a> — Editor de codigo (MIT)</li>
+                            <li><a href="https://getbootstrap.com/" target="_blank" rel="noopener" class="text-body-secondary">Bootstrap 5</a> — Framework CSS (MIT)</li>
+                            <li><a href="https://marked.js.org/" target="_blank" rel="noopener" class="text-body-secondary">marked</a> — Renderizado Markdown (MIT)</li>
+                            <li><a href="https://vite.dev/" target="_blank" rel="noopener" class="text-body-secondary">Vite</a> — Build tool (MIT)</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- CheerpJ routes System.out here -->
+    <pre id="console" style="position:absolute;left:-9999px;top:-9999px;"></pre>
 
     <!-- Main app -->
     <script type="module" src="js/app.js"></script>

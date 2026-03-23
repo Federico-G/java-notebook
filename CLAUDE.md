@@ -1,6 +1,6 @@
 # Java Notebook
 
-Notebook de Java 100% client-side que corre en el navegador. El compilador Java (javac) y TeaVM corren en WebAssembly — sin servidor, sin backend, sin instalacion.
+Notebook de Java 100% client-side que corre en el navegador. Java 17 completo corre en WebAssembly via CheerpJ + JShell — sin servidor, sin backend, sin instalacion.
 
 ## Arquitectura
 
@@ -14,22 +14,20 @@ js/
   cell-renderer.js      → Creacion del DOM para celdas code/markdown (Bootstrap cards)
   editor-setup.js       → Factory de CodeMirror 6 (Java syntax, Markdown syntax, keymaps, indent, dark theme)
   notebook-model.js     → Modelo de datos .ipynb (parse/serialize)
-  synthetic-class.js    → Envuelve snippets de celdas en clase Java compilable
-  compiler-worker-proxy.js → Proxy Promise-based al Web Worker de teavm-javac
-  execution-manager.js  → Ejecucion en iframe + captura stdout/stderr
+  jshell-proxy.js       → Proxy a CheerpJ + JShellBridge (init, eval, reset, close por sesion)
   ipynb-io.js           → Import/export .ipynb, drag-drop, autosave multi-tab
+src/
+  JShellBridge.java     → Bridge multi-sesion entre JS y JShell (CheerpJ library mode)
+  build.sh              → Compila JShellBridge.java y copia .class a public/jshell/
 public/                 → Archivos estaticos (Vite los copia tal cual a dist/)
-  frames/
-    run-frame.html/js   → Iframe sandboxed para ejecutar WASM compilado
-  teavm/                → Artefactos teavm-javac self-hosted (~7MB)
-    compiler.wasm       → javac + TeaVM compilado a WASM
-    compiler.wasm-runtime.js → Loader del WASM
-    worker.js           → Web Worker que carga el compilador
-    *.bin               → Classlibs de Java
+  jshell/               → JARs de JShell + clases compiladas (~5.6MB)
+    jdk.compiler_17.jar → javac extraido de Temurin JDK 17
+    jdk.jshell.jar      → JShell + dependencias (8 modulos JDK, parcheado para CheerpJ)
+    JShellBridge*.class → Clases compiladas del bridge
   examples/             → Notebooks de ejemplo (.ipynb), listados en index.json
 package.json            → Dependencias npm + scripts (dev, build, preview)
 vite.config.js          → Config de Vite (base path para GitHub Pages)
-update-teavm.mjs        → Script para descargar artefactos TeaVM desde teavm.org
+update-jshell.mjs       → Script para reconstruir artefactos JShell desde Temurin JDK 17
 start.sh                → Script de inicio para Linux/macOS
 start.bat               → Script de inicio para Windows
 ```
@@ -41,40 +39,50 @@ start.bat               → Script de inicio para Windows
 - **Bootstrap Icons** via npm — iconos consistentes en toda la UI
 - **CodeMirror 6** via npm — editor, syntax highlighting Java + Markdown, search
 - **marked.js** via npm — renderizado de markdown
-- **teavm-javac** — compilador Java a WASM que corre en Web Worker
+- **CheerpJ** — JVM completa en WebAssembly, cargada desde CDN
+- **JShell** — REPL de Java 17 para evaluacion interactiva de codigo
 - **@codemirror/theme-one-dark** — tema oscuro, togglable desde settings (Auto/Claro/Oscuro)
 - **@codemirror/lang-markdown** — syntax highlighting para editor de celdas markdown
 
-## Como funciona la compilacion
+## Como funciona la ejecucion
 
-1. Todo el codigo de las celdas se envuelve en `synthetic-class.js` dentro de un `public static void main()`
-2. Imports se extraen y se ponen arriba de la clase
-3. Marcadores `@@NBCELL@@N` se inyectan entre celdas para filtrar output por celda
-4. El Worker compila con javac y luego genera WASM con TeaVM
-5. El iframe ejecuta el WASM y captura stdout/stderr char por char via postMessage
+1. CheerpJ se inicializa una vez al cargar la pagina (carga JVM WASM desde CDN)
+2. JShellBridge se carga via `cheerpjRunLibrary()` en library mode
+3. Cada tab crea una sesion JShell independiente via `JShellBridge.init(sessionId)`
+4. Al ejecutar una celda, `jshell-proxy.js` llama a `JShellBridge.eval(sessionId, code)`
+5. JShell compila y ejecuta el snippet — variables, clases y metodos persisten en la sesion
+6. La salida se captura de dos fuentes: Java `SwitchOutputStream` buffer + CheerpJ `#console` DOM
+7. "Reiniciar y ejecutar todo" hace reset de la sesion y ejecuta todas las celdas en orden
 
-## Celdas Global vs Local
+## Sesiones JShell por tab
 
-- **Local** (default): se ejecuta de forma completamente independiente
-- **Global**: se incluye al compilar celdas posteriores (para compartir clases, variables)
-- El scope se guarda en `cell.metadata.scope`
+- Cada tab tiene su propia sesion JShell (Map<String, SessionState> en Java)
+- Las sesiones son independientes — variables de un tab no afectan a otro
+- "Reiniciar sesion" destruye y recrea la sesion JShell del tab activo
+- Al cerrar un tab se destruye su sesion (`JShellBridge.close(sessionId)`)
+- Las evaluaciones se serializan via promise chain — solo una eval a la vez (output capture compartido)
 
-## Protocolo del Worker (teavm-javac)
+## JShellBridge (src/JShellBridge.java)
 
-- Worker → Main: `{ command: "initialized" }`
-- Main → Worker: `{ command: "load-classlib", id, url, runtimeUrl }`
-- Worker → Main: `{ command: "ok", id }`
-- Main → Worker: `{ command: "compile", id, text }`
-- Worker → Main: `{ command: "compilation-complete", id, status, script }`
-- Worker → Main: `{ command: "worker-error", message }` (crash/WASM trap — proxy auto-recovers)
+Bridge multi-sesion entre JavaScript y JShell en CheerpJ. Estrategia de evaluacion en 3 niveles:
 
-## Limitaciones de TeaVM
+1. `throw` statements → wrapeados en try/catch (CheerpJ traga excepciones)
+2. Expresiones → wrapeadas en try/catch con captura de valor via variable nombrada
+3. Declaraciones/statements → eval normal con display de valores post-iteracion
 
-Ver `TEAVM-LIMITATIONS.md` para la lista completa. Lo mas importante:
-- `String.format()` / `System.out.printf()` — NO funcionan
+Workarounds para CheerpJ:
+- `SnippetEvent.value()` siempre retorna null — no usable
+- `shell.varValue()` retorna defaults (0, null, false) — no usable
+- Se usa `shell.eval("println(varName)")` para leer valores reales
+- Excepciones del LocalExecutionControl se tragan silenciosamente — wrap en try/catch
+
+## Limitaciones de CheerpJ
+
 - `Scanner` / `System.in` — NO hay stdin en browser
-- Reflection — muy limitada
 - `java.io.File` — NO hay filesystem
+- Algunas excepciones no se lanzan (ej: `1/0` retorna 0 en vez de ArithmeticException)
+- Primera ejecucion lenta (~5-10s) mientras CheerpJ inicializa la JVM
+- CheerpJ se carga desde CDN — requiere conexion a internet
 
 ## Settings
 
@@ -120,18 +128,13 @@ Hay dos categorias de atajos globales (Ctrl+key):
 
 ## UI: Bootstrap + capa custom
 
-La UI usa componentes de Bootstrap (navbar, nav-tabs, cards, modals, dropdowns, btn-groups) con una capa CSS custom (~180 lineas) para estilos especificos del notebook:
-- Estado de celdas: `.cell--selected`, `.cell--local`, `.cell--global` (clases custom, no utilities de Bootstrap)
-- Scope: colores via CSS variables `--scope-local-color` (warning) y `--scope-global-color` (success)
+La UI usa componentes de Bootstrap (navbar, nav-tabs, cards, modals, dropdowns, btn-groups) con una capa CSS custom para estilos especificos del notebook:
+- Estado de celdas: `.cell--selected` (clase custom, no utilities de Bootstrap)
 - Toolbar de markdown: floating overlay con backdrop-filter, aparece en hover
 - Add-cell-rows intermedias: altura minima, botones ghost con opacidad 0.25
 - Modo lectura: clase `.read-mode` en body oculta controles de edicion via CSS
 - Tab bar: scroll arrows en desktop (hover:hover), fade hints en mobile/touch
 - Mutaciones DOM targeted: add/delete/move celdas sin reconstruir todo el DOM
-
-## Compilacion serializada y resiliencia
-
-Las compilaciones se serializan via promise chain en `compiler-worker-proxy.js`. Multiples llamadas a `compile()` se encolan — el Worker solo procesa una a la vez. Cada compilacion tiene timeout de 30s. Si el Worker crashea (WASM trap), el proxy rechaza la compilacion pendiente y reinicializa el Worker automaticamente. El Worker reporta crashes via `{ command: "worker-error" }`. El iframe de ejecucion tiene error handlers globales como safety net para errores WASM que escapen del try/catch.
 
 ## Clipboard y undo por tab
 
@@ -168,6 +171,6 @@ npm outdated
 npm update
 npm run build
 
-# Actualizar TeaVM (descarga artefactos de teavm.org)
-npm run update-teavm
+# Reconstruir artefactos JShell desde Temurin JDK 17 (requiere Java 17+)
+npm run update-jshell
 ```

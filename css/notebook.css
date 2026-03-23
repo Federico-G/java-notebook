@@ -4,10 +4,6 @@
     /* Sizing */
     --btn-min-touch: 44px;
 
-    /* Scope accent colors */
-    --scope-local-color: var(--bs-warning);
-    --scope-global-color: var(--bs-success);
-
     /* Custom colors */
     --output-bg: var(--bs-tertiary-bg);
     --stderr-color: var(--bs-danger);
@@ -198,26 +194,6 @@ body {
 
 .cell.cell--selected {
     border-color: var(--selected-color);
-    box-shadow: 0 0 0 2px var(--selected-color);
-}
-
-.cell.cell--local {
-    border-left: 3px solid var(--scope-local-color);
-}
-
-.cell.cell--global {
-    border-left: 3px solid var(--scope-global-color);
-}
-
-.cell.cell--selected.cell--local {
-    border-color: var(--selected-color);
-    border-left: 3px solid var(--scope-local-color);
-    box-shadow: 0 0 0 2px var(--selected-color);
-}
-
-.cell.cell--selected.cell--global {
-    border-color: var(--selected-color);
-    border-left: 3px solid var(--scope-global-color);
     box-shadow: 0 0 0 2px var(--selected-color);
 }
 

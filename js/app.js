@@ -4,9 +4,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { Modal } from 'bootstrap';
 import { createEmptyNotebook, createCell, fromJSON } from './notebook-model.js';
-import { initCompiler, setProgressCallback } from './compiler-worker-proxy.js';
+import { initJShell, setProgressCallback } from './jshell-proxy.js';
 import { updateAllEditorsIndent, updateAllEditorsTheme } from './editor-setup.js';
-import { ExecutionManager } from './execution-manager.js';
 import {
     importFromFile, exportToFile, setupDragDrop,
     saveAllTabsToStorage, loadTabsFromStorage
@@ -29,9 +28,6 @@ const loadingStatus = document.getElementById('loading-status');
 const btnImport = document.getElementById('btn-import');
 const btnExport = document.getElementById('btn-export');
 
-// Execution manager (shared across all tabs)
-const execManager = new ExecutionManager();
-
 let autosaveTimer = null;
 
 async function main() {
@@ -39,7 +35,7 @@ async function main() {
     initReadMode();
 
     // Init tab manager
-    initTabManager(container, tabActionsBar, execManager, onNotebookChanged, newNotebook);
+    initTabManager(container, tabActionsBar, onNotebookChanged, newNotebook);
 
     // Try to restore from localStorage
     const saved = loadTabsFromStorage();
@@ -70,29 +66,32 @@ async function main() {
     initHelpButton();
     initGlobalShortcuts();
 
-    // Init compiler
+    // Init JShell (CheerpJ + JShellBridge)
     setProgressCallback(updateLoadingStatus);
     try {
-        await initCompiler();
+        await initJShell();
         loadingOverlay.classList.add('d-none');
         focusFirstCodeCell();
     } catch (e) {
-        loadingStatus.textContent = 'Failed to load compiler: ' + e.message;
+        loadingStatus.textContent = 'Error al inicializar Java: ' + e.message;
         loadingStatus.classList.add('error');
-        console.error('Compiler init failed:', e);
+        console.error('JShell init failed:', e);
     }
 }
 
 function updateLoadingStatus(phase) {
     switch (phase) {
-        case 'loading-wasm':
-            loadingStatus.textContent = 'Cargando compilador Java (WASM)...';
+        case 'loading-cheerpj':
+            loadingStatus.textContent = 'Cargando entorno Java (CheerpJ)...';
             break;
-        case 'loading-classlibs':
-            loadingStatus.textContent = 'Cargando bibliotecas de clases...';
+        case 'loading-jshell':
+            loadingStatus.textContent = 'Cargando JShell...';
+            break;
+        case 'warming-up':
+            loadingStatus.textContent = 'Preparando compilador...';
             break;
         case 'ready':
-            loadingStatus.textContent = 'Compilador listo!';
+            loadingStatus.textContent = 'Listo!';
             break;
     }
 }
@@ -357,6 +356,9 @@ function initGlobalShortcuts() {
 
         if (!isOutsideEditor()) return;
         if (!getSettings().shortcuts) return;
+        // Don't intercept copy/cut when user has text selected (e.g. in output area)
+        const sel = window.getSelection();
+        if (sel && sel.toString().length > 0 && (e.key === 'c' || e.key === 'x')) return;
         const idle = IDLE_SHORTCUTS.find(s => s.key === e.key);
         if (idle) {
             e.preventDefault();

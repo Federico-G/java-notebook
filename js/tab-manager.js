@@ -3,19 +3,19 @@
 import { Dropdown } from 'bootstrap';
 import {
     init as initCellManager, setNotebook, getNotebook, runAll,
-    addCellAfterSelected, clearAllOutputs,
+    addCellAfterSelected, resetCurrentSession,
     moveSelectedCell, deleteSelectedCell, undoDelete, hasUndoDelete,
     getExecutionCounter, setExecutionCounter,
     getLastDeleted, setLastDeleted,
     copySelectedCell, cutSelectedCell, pasteCellAfterSelected, hasCellClipboard
 } from './cell-manager.js';
+import { initSession, closeSession } from './jshell-proxy.js';
 
 
 let tabs = [];
 let activeTabId = null;
 let containerEl = null;
 let barEl = null;
-let execManager = null;
 let onChangeCallback = null;
 let onNewTab = null;
 let resizeHandler = null;
@@ -25,13 +25,12 @@ function genTabId() {
     return 'tab-' + Date.now().toString(36) + '-' + (idCounter++).toString(36);
 }
 
-export function initTabManager(container, bar, execMgr, onChange, onNew) {
+export function initTabManager(container, bar, onChange, onNew) {
     containerEl = container;
     barEl = bar;
-    execManager = execMgr;
     onChangeCallback = onChange;
     onNewTab = onNew;
-    initCellManager(null, container, execMgr, () => {
+    initCellManager(null, container, () => {
         onChangeCallback();
     });
 }
@@ -52,7 +51,8 @@ export function createTab(notebook, filename) {
 
     setExecutionCounter(0);
     setLastDeleted(null);
-    setNotebook(notebook);
+    setNotebook(notebook, tab.id);
+    initSession(tab.id); // Create JShell session for this tab
     renderBar();
     onChangeCallback();
     return tab.id;
@@ -68,7 +68,7 @@ export function switchTab(tabId) {
     activeTabId = tabId;
     setExecutionCounter(target.executionCounter);
     setLastDeleted(target.lastDeleted || null);
-    setNotebook(target.notebook);
+    setNotebook(target.notebook, tabId);
     containerEl.scrollTop = target.scrollTop;
 
     // Just toggle active class — no full rebuild needed
@@ -86,6 +86,8 @@ export function closeTab(tabId) {
 
     if (!confirm(`Cerrar "${displayName(tab.filename)}"?`)) return;
 
+    closeSession(tabId); // Destroy JShell session for this tab
+
     const idx = tabs.indexOf(tab);
     tabs.splice(idx, 1);
 
@@ -95,7 +97,7 @@ export function closeTab(tabId) {
         const target = tabs[newIdx];
         setExecutionCounter(target.executionCounter);
         setLastDeleted(target.lastDeleted || null);
-        setNotebook(target.notebook);
+        setNotebook(target.notebook, activeTabId);
         containerEl.scrollTop = target.scrollTop;
     }
     renderBar();
@@ -282,8 +284,8 @@ function renderBar() {
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
             <li class="dropdown-header">Ejecutar</li>
-            <li><button class="dropdown-item action-run-all"><i class="bi bi-play-circle"></i> Ejecutar todos</button></li>
-            <li><button class="dropdown-item action-clear-all-output"><i class="bi bi-eraser"></i> Limpiar resultados</button></li>
+            <li><button class="dropdown-item action-run-all"><i class="bi bi-play-circle"></i> Reiniciar y ejecutar todo</button></li>
+            <li><button class="dropdown-item action-reset-session"><i class="bi bi-arrow-repeat"></i> Reiniciar sesion</button></li>
             <li><hr class="dropdown-divider"></li>
             <li class="dropdown-header">Agregar celda</li>
             <li class="px-3 py-1 d-flex gap-1">
@@ -312,7 +314,7 @@ function renderBar() {
     menuContainer.querySelector('.action-add-code').addEventListener('click', () => addCellAfterSelected('code'));
     menuContainer.querySelector('.action-add-md').addEventListener('click', () => addCellAfterSelected('markdown'));
     menuContainer.querySelector('.action-run-all').addEventListener('click', () => runAll());
-    menuContainer.querySelector('.action-clear-all-output').addEventListener('click', () => clearAllOutputs());
+    menuContainer.querySelector('.action-reset-session').addEventListener('click', () => resetCurrentSession());
     menuContainer.querySelector('.action-move-up').addEventListener('click', () => moveSelectedCell(-1));
     menuContainer.querySelector('.action-move-down').addEventListener('click', () => moveSelectedCell(1));
     menuContainer.querySelector('.action-delete-cell').addEventListener('click', () => deleteSelectedCell());

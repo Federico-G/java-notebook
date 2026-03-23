@@ -1,6 +1,6 @@
 [
-  { "name": "Hola Mundo", "filename": "hola-mundo.ipynb" },
-  { "name": "Variables y Tipos", "filename": "variables.ipynb" },
-  { "name": "Colecciones", "filename": "collections.ipynb" },
-  { "name": "POO - Clases y Objetos", "filename": "oop-basics.ipynb" }
+  { "name": "Palindromo", "filename": "palindromo.ipynb" },
+  { "name": "Numero del Cesar", "filename": "numero-cesar.ipynb" },
+  { "name": "Java Avanzado", "filename": "java-avanzado.ipynb" },
+  { "name": "Estado entre Celdas", "filename": "estado-entre-celdas.ipynb" }
 ]

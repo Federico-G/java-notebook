@@ -38,6 +38,7 @@ export function fromJSON(obj) {
             const source = Array.isArray(c.source) ? c.source.join('') : (c.source || '');
             const cell = createCell(c.cell_type, source);
             cell.metadata = c.metadata || {};
+            delete cell.metadata.scope; // Strip legacy Global/Local scope
             return cell;
         });
     return notebook;

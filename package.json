@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "update-teavm": "node update-teavm.mjs"
+    "update-jshell": "node update-jshell.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.7.1",

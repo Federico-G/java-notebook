@@ -1,23 +1,16 @@
 # Java Notebook
 
-Notebook de Java 100% client-side que corre en el navegador. El compilador Java (javac) y TeaVM corren en WebAssembly — no necesita servidor, backend, ni instalación. Permite escribir y ejecutar código Java directamente en el navegador, con celdas de código y markdown al estilo Jupyter.
+Notebook de Java 100% client-side que corre en el navegador. Java 17 completo corre en WebAssembly via CheerpJ + JShell — no necesita servidor, backend, ni instalación. Permite escribir y ejecutar código Java directamente en el navegador, con celdas de código y markdown al estilo Jupyter.
 
 **Probalo online:** https://federico-g.github.io/java-notebook/
 
 ## Cómo funciona
 
 1. Escribís código Java en las celdas del notebook
-2. Al ejecutar una celda, el código se envuelve en una clase Java
-3. Un Web Worker compila el código con javac y genera WASM con TeaVM
-4. El WASM se ejecuta en un iframe sandboxed
+2. Al ejecutar una celda, el código se evalúa con JShell (Java 17 REPL)
+3. CheerpJ corre una JVM completa en WebAssembly dentro del navegador
+4. Cada pestaña tiene su propia sesión JShell — variables, clases y métodos persisten entre celdas
 5. La salida (stdout/stderr) se captura y muestra debajo de la celda
-
-### Celdas Global vs Local
-
-- **Local** (default): la celda se ejecuta de forma independiente
-- **Global**: el código de la celda se incluye al compilar celdas posteriores, para compartir clases, variables, etc.
-
-El scope se puede cambiar desde el menú de cada celda.
 
 ### Configuración
 
@@ -30,16 +23,14 @@ Desde el ícono de engranaje en la barra superior:
 
 La configuración se guarda en `localStorage`. Presionar `?` para ver los atajos de teclado disponibles.
 
-### Limitaciones de TeaVM
+### Limitaciones
 
-El compilador TeaVM tiene algunas limitaciones al correr en el navegador:
+Al correr en el navegador, hay algunas diferencias con un JDK de escritorio:
 
-- `String.format()` / `System.out.printf()` — no funcionan
 - `Scanner` / `System.in` — no hay stdin en el browser
-- Reflection — muy limitada
 - `java.io.File` — no hay filesystem
-
-Para la lista completa, ver `TEAVM-LIMITATIONS.md`.
+- Algunas excepciones de CheerpJ se comportan distinto (ej: `1/0` puede no lanzar `ArithmeticException`)
+- La primera ejecución es lenta (~5-10s) mientras CheerpJ inicializa la JVM
 
 ### Actualizar ejemplos
 
@@ -140,15 +131,15 @@ npm install marked@latest
 npm run build
 ```
 
-### Actualizar TeaVM
+### Actualizar JShell
 
-Los artefactos del compilador Java → WASM están en `public/teavm/`. Para descargar la última versión desde [teavm.org](https://teavm.org/playground.html) (fuente: [konsoletyper/teavm-javac](https://github.com/konsoletyper/teavm-javac)):
+Los artefactos de JShell están en `public/jshell/`. Para reconstruirlos desde cero (descarga Temurin JDK 17, extrae módulos, aplica parches para CheerpJ, y compila JShellBridge):
 
 ```bash
-npm run update-teavm
+npm run update-jshell
 ```
 
-Descarga los 4 artefactos (~6.5 MB total) directamente del servidor oficial.
+Requiere Java 17+ instalado (para `jmod`, `jar`, `javac`).
 
 ### Deploy
 
@@ -172,17 +163,17 @@ js/                     Lógica de la aplicación (ES modules)
   cell-renderer.js      Creación del DOM para celdas code/markdown (Bootstrap cards)
   editor-setup.js       Factory de CodeMirror 6 (Java + Markdown syntax, keymaps, temas)
   notebook-model.js     Modelo de datos .ipynb (parse/serialize)
-  synthetic-class.js    Envuelve snippets en clase Java compilable
-  compiler-worker-proxy.js  Proxy al Web Worker del compilador
-  execution-manager.js  Ejecución en iframe + captura stdout/stderr
+  jshell-proxy.js       Proxy a CheerpJ + JShellBridge (init, eval, reset, close)
   ipynb-io.js           Import/export .ipynb, drag-drop, autosave
+src/                    Código fuente Java
+  JShellBridge.java     Bridge multi-sesion entre JS y JShell (CheerpJ library mode)
+  build.sh              Compila JShellBridge.java y copia .class a public/jshell/
 public/                 Archivos estáticos (Vite los copia tal cual a dist/)
-  teavm/                Artefactos del compilador Java → WASM (~7 MB)
-  frames/               Iframe sandboxed para ejecutar WASM compilado
+  jshell/               JARs de JShell + clases compiladas (~5.6 MB)
   examples/             Notebooks de ejemplo (.ipynb)
 package.json            Dependencias y scripts npm
 vite.config.js          Configuración de Vite
-update-teavm.mjs        Script para descargar artefactos TeaVM
+update-jshell.mjs       Script para reconstruir artefactos JShell desde Temurin JDK 17
 start.sh                Script de inicio para Linux/macOS
 start.bat               Script de inicio para Windows
 ```
@@ -194,4 +185,5 @@ start.bat               Script de inicio para Windows
 - **[Bootstrap Icons](https://icons.getbootstrap.com/)** — íconos consistentes en toda la UI
 - **[CodeMirror 6](https://codemirror.net/)** — editor de código con syntax highlighting Java y Markdown
 - **[marked](https://marked.js.org/)** — renderizado de markdown
-- **[teavm-javac](https://github.com/konsoletyper/teavm-javac)** — compilador Java → WASM
+- **[CheerpJ](https://cheerpj.com/)** — JVM completa en WebAssembly (Java 17)
+- **[JShell](https://docs.oracle.com/en/java/javase/17/jshell/)** — REPL de Java 17 para evaluar código interactivamente
