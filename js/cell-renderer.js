@@ -2,6 +2,14 @@
 
 import { marked } from 'marked';
 
+const renderer = new marked.Renderer();
+const defaultLinkRenderer = renderer.link.bind(renderer);
+renderer.link = function (args) {
+    const html = defaultLinkRenderer(args);
+    return html.replace('<a ', '<a target="_blank" rel="noopener" ');
+};
+marked.use({ renderer });
+
 function renderIconButton({ icon, label, variant = 'outline-secondary', size = 'sm', cls = '' }) {
     return `<button class="btn btn-${variant} btn-${size} ${cls}" aria-label="${label}" title="${label}">` +
            `<i class="bi bi-${icon}" aria-hidden="true"></i></button>`;
