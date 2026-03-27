@@ -234,6 +234,14 @@ public class JShellBridge {
         return result.toString();
     }
 
+    /** Format unresolved dependencies as "X is declared" or "X, and Y are declared" */
+    private static String unresolvedList(SessionState state, DeclarationSnippet snippet) {
+        List<String> deps = state.shell.unresolvedDependencies(snippet).toList();
+        if (deps.isEmpty()) return "its dependencies are declared";
+        if (deps.size() == 1) return deps.get(0) + " is declared";
+        return String.join(", and ", deps) + " are declared";
+    }
+
     private static boolean tryEvalAsExpression(SessionState state, String expr, StringBuilder errors) {
         state.scratchCounter++;
         String displayName;
@@ -290,7 +298,14 @@ public class JShellBridge {
                     || status == Snippet.Status.RECOVERABLE_NOT_DEFINED) {
 
                 if (s instanceof VarSnippet vs) {
-                    varsToShow.add(vs);
+                    if (status == Snippet.Status.RECOVERABLE_DEFINED
+                        || status == Snippet.Status.RECOVERABLE_NOT_DEFINED) {
+                        String msg = "|  created variable " + vs.name() + ", however, it cannot be "
+                            + "referenced until " + unresolvedList(state, vs);
+                        bufferWrite(msg + "\n");
+                    } else {
+                        varsToShow.add(vs);
+                    }
 
                 } else if (s instanceof ExpressionSnippet es) {
                     exprsToShow.add(es);
@@ -301,11 +316,8 @@ public class JShellBridge {
                         + " method " + ms.name() + "(" + ms.parameterTypes() + ")";
                     if (status == Snippet.Status.RECOVERABLE_DEFINED
                         || status == Snippet.Status.RECOVERABLE_NOT_DEFINED) {
-                        List<String> deps = state.shell.unresolvedDependencies(ms).toList();
-                        if (!deps.isEmpty()) {
-                            msg += ", however, it cannot be invoked until "
-                                + String.join(", and ", deps) + " are declared";
-                        }
+                        msg += ", however, it cannot be referenced until "
+                            + unresolvedList(state, ms);
                     }
                     bufferWrite(msg + "\n");
 
@@ -315,8 +327,14 @@ public class JShellBridge {
                         : s.subKind() == Snippet.SubKind.INTERFACE_SUBKIND ? "interface"
                         : s.subKind() == Snippet.SubKind.ENUM_SUBKIND ? "enum"
                         : s.subKind() == Snippet.SubKind.RECORD_SUBKIND ? "record" : "type";
-                    bufferWrite("|  " + (isNew ? "created" : "modified")
-                        + " " + kind + " " + ts.name() + "\n");
+                    String msg = "|  " + (isNew ? "created" : "modified")
+                        + " " + kind + " " + ts.name();
+                    if (status == Snippet.Status.RECOVERABLE_DEFINED
+                        || status == Snippet.Status.RECOVERABLE_NOT_DEFINED) {
+                        msg += ", however, it cannot be referenced until "
+                            + unresolvedList(state, ts);
+                    }
+                    bufferWrite(msg + "\n");
                 }
             }
         }

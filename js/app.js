@@ -25,12 +25,55 @@ const container = document.getElementById('notebook-container');
 const tabActionsBar = document.getElementById('tab-actions-bar');
 const loadingOverlay = document.getElementById('loading-overlay');
 const loadingStatus = document.getElementById('loading-status');
+const loadingImport = document.getElementById('loading-import');
 const btnImport = document.getElementById('btn-import');
 const btnExport = document.getElementById('btn-export');
+
+// --- Multi-tab: delegate ?url= to existing tab ---
+
+const channel = new BroadcastChannel('java-notebook');
+
+async function tryDelegateURL() {
+    const url = new URLSearchParams(window.location.search).get('url');
+    if (!url) return false;
+
+    return new Promise(resolve => {
+        const onMessage = (e) => {
+            if (e.data?.type === 'ack-import') {
+                channel.removeEventListener('message', onMessage);
+                resolve(true);
+            }
+        };
+        channel.addEventListener('message', onMessage);
+        channel.postMessage({ type: 'import-url', url });
+        setTimeout(() => {
+            channel.removeEventListener('message', onMessage);
+            resolve(false);
+        }, 500);
+    });
+}
+
+function showDelegatedMessage() {
+    loadingOverlay.querySelector('.spinner-border')?.remove();
+    loadingStatus.remove();
+    loadingImport.textContent = 'Notebook enviado a la pestaña abierta';
+    loadingImport.classList.remove('d-none');
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm btn-outline-secondary mt-3';
+    btn.textContent = 'Cerrar pestaña';
+    btn.addEventListener('click', () => window.close());
+    loadingImport.after(btn);
+}
 
 let autosaveTimer = null;
 
 async function main() {
+    // If ?url= and another tab is open, delegate and stop
+    if (await tryDelegateURL()) {
+        showDelegatedMessage();
+        return;
+    }
+
     // Restore read mode before rendering
     initReadMode();
 
@@ -50,6 +93,9 @@ async function main() {
         createTab(nb, 'notebook.ipynb');
     }
 
+    // Import notebook from ?url= query parameter
+    await importFromURL();
+
     // Setup drag-drop — opens as new tab
     setupDragDrop(container, ({ notebook, filename }) => {
         createTab(notebook, filename);
@@ -65,6 +111,23 @@ async function main() {
     initShortcutsModal();
     initHelpButton();
     initGlobalShortcuts();
+
+    // Listen for ?url= delegated from other tabs
+    channel.addEventListener('message', async (e) => {
+        if (e.data?.type !== 'import-url') return;
+        const url = e.data.url;
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const obj = await resp.json();
+            const nb = fromJSON(obj);
+            const filename = url.split('/').pop().split('?')[0] || 'notebook.ipynb';
+            createTab(nb, filename);
+            channel.postMessage({ type: 'ack-import' });
+        } catch (err) {
+            console.error('Error importing delegated URL:', err);
+        }
+    });
 
     // Init JShell (CheerpJ + JShellBridge)
     setProgressCallback(updateLoadingStatus);
@@ -127,6 +190,29 @@ function handleExport() {
     const tab = getActiveTab();
     if (tab) {
         exportToFile(tab.notebook, tab.filename);
+    }
+}
+
+// --- Import from URL ---
+
+async function importFromURL() {
+    const url = new URLSearchParams(window.location.search).get('url');
+    if (!url) return;
+    const filename = url.split('/').pop().split('?')[0] || 'notebook.ipynb';
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const obj = await resp.json();
+        const nb = fromJSON(obj);
+        createTab(nb, filename);
+        loadingImport.textContent = 'Notebook importado: ' + filename;
+        loadingImport.classList.remove('d-none');
+        // Clean the URL without reloading
+        window.history.replaceState({}, '', window.location.pathname);
+    } catch (e) {
+        loadingImport.textContent = 'Error al importar: ' + e.message;
+        loadingImport.classList.remove('d-none');
+        console.error('Error importing from URL:', e);
     }
 }
 

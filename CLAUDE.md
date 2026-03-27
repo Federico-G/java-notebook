@@ -1,6 +1,6 @@
 # Java Notebook
 
-Notebook de Java 100% client-side que corre en el navegador. Java 17 completo corre en WebAssembly via CheerpJ + JShell — sin servidor, sin backend, sin instalacion.
+Notebook de Java 100% client-side que corre en el navegador. Java 17 completo corre en WebAssembly via CheerpJ + JShell. Sin servidor, sin backend, sin instalacion.
 
 ## Arquitectura
 
@@ -8,7 +8,7 @@ Notebook de Java 100% client-side que corre en el navegador. Java 17 completo co
 index.html              → Punto de entrada (Vite entry point)
 css/notebook.css        → Estilos responsive mobile-first con dark mode
 js/
-  app.js                → Bootstrap, navbar, settings, shortcuts modal, read mode, autosave, ejemplos
+  app.js                → Bootstrap, navbar, settings, shortcuts modal, read mode, autosave, ejemplos, import por URL
   tab-manager.js        → Multiples notebooks en pestanas, barra de tabs + menu de acciones
   cell-manager.js       → Ciclo de vida de celdas, seleccion, ejecucion, mutaciones DOM targeted
   cell-renderer.js      → Creacion del DOM para celdas code/markdown (Bootstrap cards)
@@ -34,15 +34,15 @@ start.bat               → Script de inicio para Windows
 
 ## Stack tecnico
 
-- **Vite** — build tool + dev server, resuelve dependencias desde node_modules/
-- **Bootstrap 5** via npm — framework CSS + componentes JS (navbar, nav-tabs, cards, modals, dropdowns)
-- **Bootstrap Icons** via npm — iconos consistentes en toda la UI
-- **CodeMirror 6** via npm — editor, syntax highlighting Java + Markdown, search
-- **marked.js** via npm — renderizado de markdown
-- **CheerpJ** — JVM completa en WebAssembly, cargada desde CDN
-- **JShell** — REPL de Java 17 para evaluacion interactiva de codigo
-- **@codemirror/theme-one-dark** — tema oscuro, togglable desde settings (Auto/Claro/Oscuro)
-- **@codemirror/lang-markdown** — syntax highlighting para editor de celdas markdown
+- **Vite**: build tool + dev server, resuelve dependencias desde node_modules/
+- **Bootstrap 5** via npm: framework CSS + componentes JS (navbar, nav-tabs, cards, modals, dropdowns)
+- **Bootstrap Icons** via npm: iconos consistentes en toda la UI
+- **CodeMirror 6** via npm: editor, syntax highlighting Java + Markdown, search
+- **marked.js** via npm: renderizado de markdown
+- **CheerpJ**: JVM completa en WebAssembly, cargada desde CDN
+- **JShell**: REPL de Java 17 para evaluacion interactiva de codigo
+- **@codemirror/theme-one-dark**: tema oscuro, togglable desde settings (Auto/Claro/Oscuro)
+- **@codemirror/lang-markdown**: syntax highlighting para editor de celdas markdown
 
 ## Como funciona la ejecucion
 
@@ -50,17 +50,17 @@ start.bat               → Script de inicio para Windows
 2. JShellBridge se carga via `cheerpjRunLibrary()` en library mode
 3. Cada tab crea una sesion JShell independiente via `JShellBridge.init(sessionId)`
 4. Al ejecutar una celda, `jshell-proxy.js` llama a `JShellBridge.eval(sessionId, code)`
-5. JShell compila y ejecuta el snippet — variables, clases y metodos persisten en la sesion
+5. JShell compila y ejecuta el snippet. Variables, clases y metodos persisten en la sesion
 6. La salida se captura de dos fuentes: Java `SwitchOutputStream` buffer + CheerpJ `#console` DOM
 7. "Reiniciar y ejecutar todo" hace reset de la sesion y ejecuta todas las celdas en orden
 
 ## Sesiones JShell por tab
 
 - Cada tab tiene su propia sesion JShell (Map<String, SessionState> en Java)
-- Las sesiones son independientes — variables de un tab no afectan a otro
+- Las sesiones son independientes. Variables de un tab no afectan a otro
 - "Reiniciar sesion" destruye y recrea la sesion JShell del tab activo
 - Al cerrar un tab se destruye su sesion (`JShellBridge.close(sessionId)`)
-- Las evaluaciones se serializan via promise chain — solo una eval a la vez (output capture compartido)
+- Las evaluaciones se serializan via promise chain, solo una eval a la vez (output capture compartido)
 
 ## JShellBridge (src/JShellBridge.java)
 
@@ -71,26 +71,63 @@ Bridge multi-sesion entre JavaScript y JShell en CheerpJ. Estrategia de evaluaci
 3. Declaraciones/statements → eval normal con display de valores post-iteracion
 
 Workarounds para CheerpJ:
-- `SnippetEvent.value()` siempre retorna null — no usable
-- `shell.varValue()` retorna defaults (0, null, false) — no usable
+- `SnippetEvent.value()` siempre retorna null, no usable
+- `shell.varValue()` retorna defaults (0, null, false), no usable
 - Se usa `shell.eval("println(varName)")` para leer valores reales
-- Excepciones del LocalExecutionControl se tragan silenciosamente — wrap en try/catch
+- Excepciones del LocalExecutionControl se tragan silenciosamente, wrap en try/catch
 
 ## Limitaciones de CheerpJ
 
-- `Scanner` / `System.in` — NO hay stdin en browser
-- `java.io.File` — NO hay filesystem
+- `Scanner` / `System.in`: NO hay stdin en browser
+- `java.io.File`: NO hay filesystem
 - Algunas excepciones no se lanzan (ej: `1/0` retorna 0 en vez de ArithmeticException)
 - Primera ejecucion lenta (~5-10s) mientras CheerpJ inicializa la JVM
-- CheerpJ se carga desde CDN — requiere conexion a internet
+- CheerpJ se carga desde CDN, requiere conexion a internet
+
+## UI: menus y controles
+
+**Menu Archivo** (navbar dropdown):
+- Importar: abre un .ipynb desde disco (tambien drag-drop)
+- Exportar: descarga el notebook actual
+- Ejemplos: notebooks de ejemplo cargados desde `public/examples/index.json`
+
+**Configuracion** (engranaje en navbar):
+- Tema: Auto, Claro, Oscuro
+- Identacion: 2 o 4 espacios
+- Modo: Edicion o Lectura (alterna controles de edicion)
+- Atajos generales: On u Off
+
+**Menu del notebook** (icono ⋮ a la derecha de la barra de tabs):
+- Reiniciar y ejecutar todo
+- Reiniciar sesion
+- Agregar celda: Codigo, Texto
+- Celda seleccionada: Subir, Bajar, Cortar, Copiar, Pegar, Eliminar, Deshacer eliminar
+
+**Pestanas**:
+- Boton + para nuevo notebook
+- Doble clic en pestana para renombrar (long-press en mobile)
+- Boton X para cerrar
+
+**Celdas de codigo**: boton Ejecutar, botones Subir/Bajar/Eliminar, botones Copiar/Limpiar resultado
+**Celdas de markdown**: doble clic para editar, botones Editar/Listo, Subir/Bajar/Eliminar
+
+## Import por URL
+
+Se puede abrir un notebook desde una URL con el query parameter `?url=`:
+```
+https://sitio.com/?url=https://ejemplo.com/notebook.ipynb
+```
+- Hace fetch del .ipynb, lo parsea y abre como tab nuevo
+- Muestra "Notebook importado: nombre" en el loading overlay
+- Si ya hay otra pestana del navegador abierta, delega via BroadcastChannel y muestra "Notebook enviado a la pestana abierta"
 
 ## Settings
 
 Se guardan en localStorage key `java-notebook-settings`:
 - `theme`: system, light o dark (default system)
 - `indentSize`: 2 o 4 espacios (default 4)
-- `readMode`: true/false (default false) — modo lectura oculta controles de edicion
-- `shortcuts`: true/false (default false) — habilita atajos idle (cut/copy/paste/delete/undo celda)
+- `readMode`: true/false (default false). Modo lectura oculta controles de edicion
+- `shortcuts`: true/false (default false). Habilita atajos idle (cut/copy/paste/delete/undo celda)
 
 Los tabs/notebooks se guardan en localStorage key `java-notebook-autosave` (formato multi-tab).
 
@@ -98,7 +135,7 @@ Los tabs/notebooks se guardan en localStorage key `java-notebook-autosave` (form
 
 Hay dos categorias de atajos globales (Ctrl+key):
 
-**Always-on** — funcionan siempre, incluso dentro del editor (bloqueados solo por modals/dropdowns):
+**Always-on**, funcionan siempre, incluso dentro del editor (bloqueados solo por modals/dropdowns):
 
 | Atajo | Accion |
 |---|---|
@@ -106,7 +143,7 @@ Hay dos categorias de atajos globales (Ctrl+key):
 | Ctrl+E | Alternar modo lectura/edicion |
 | Ctrl+Up/Down | Navegar entre celdas |
 
-**Idle-only** — requieren foco fuera del editor + setting "Atajos generales" habilitado:
+**Idle-only**, requieren foco fuera del editor + setting "Atajos generales" habilitado:
 
 | Atajo | Accion |
 |---|---|
@@ -122,7 +159,7 @@ Hay dos categorias de atajos globales (Ctrl+key):
 |---|---|
 | Shift+Enter | Ejecutar y quedarse (code) / Salir edicion (markdown) |
 | Ctrl+Enter | Ejecutar y avanzar (code) / Salir y avanzar (markdown) |
-| Ctrl+Shift+F | Formatear codigo |
+| Ctrl+Shift+F | Corregir indentacion |
 | Escape | Salir de edicion markdown |
 | ? | Mostrar/ocultar modal de atajos (fuera de editor) |
 

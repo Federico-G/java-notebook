@@ -1,6 +1,3 @@
 [
-  { "name": "Palindromo", "filename": "palindromo.ipynb" },
-  { "name": "Numero del Cesar", "filename": "numero-cesar.ipynb" },
-  { "name": "Java Avanzado", "filename": "java-avanzado.ipynb" },
-  { "name": "Estado entre Celdas", "filename": "estado-entre-celdas.ipynb" }
+  { "name": "Guia de la plataforma", "filename": "guia-plataforma.ipynb" }
 ]
