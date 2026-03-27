@@ -1,15 +1,13 @@
 # Java Notebook
 
-Notebook de Java 100% client-side que corre en el navegador. Java 17 completo corre en WebAssembly via CheerpJ + JShell — no necesita servidor, backend, ni instalación. Permite escribir y ejecutar código Java directamente en el navegador, con celdas de código y markdown al estilo Jupyter.
-
-**Probalo online:** https://federico-g.github.io/java-notebook/
+Notebook de Java 100% client-side que corre en el navegador. Java 17 completo corre en WebAssembly via CheerpJ + JShell: no necesita servidor, backend, ni instalación. Permite escribir y ejecutar código Java directamente en el navegador, con celdas de código y markdown al estilo Jupyter.
 
 ## Cómo funciona
 
 1. Escribís código Java en las celdas del notebook
 2. Al ejecutar una celda, el código se evalúa con JShell (Java 17 REPL)
 3. CheerpJ corre una JVM completa en WebAssembly dentro del navegador
-4. Cada pestaña tiene su propia sesión JShell — variables, clases y métodos persisten entre celdas
+4. Cada pestaña tiene su propia sesión JShell: variables, clases y métodos persisten entre celdas
 5. La salida (stdout/stderr) se captura y muestra debajo de la celda
 
 ### Configuración
@@ -19,7 +17,7 @@ Desde el ícono de engranaje en la barra superior:
 - **Tema**: Auto (sigue al sistema), Claro, u Oscuro
 - **Identación**: 2 o 4 espacios
 - **Modo**: Edición (todos los controles visibles) o Lectura (oculta controles de edición)
-- **Atajos generales**: On/Off (default Off) — habilita Ctrl+X/C/V/Z/Delete para cortar, copiar, pegar, deshacer y eliminar celdas cuando el foco está fuera del editor
+- **Atajos generales**: On/Off (default Off). Habilita Ctrl+X/C/V/Z/Delete para cortar, copiar, pegar, deshacer y eliminar celdas cuando el foco está fuera del editor
 
 La configuración se guarda en `localStorage`. Presionar `?` para ver los atajos de teclado disponibles.
 
@@ -27,8 +25,8 @@ La configuración se guarda en `localStorage`. Presionar `?` para ver los atajos
 
 Al correr en el navegador, hay algunas diferencias con un JDK de escritorio:
 
-- `Scanner` / `System.in` — no hay stdin en el browser
-- `java.io.File` — no hay filesystem
+- `Scanner` / `System.in`: no hay stdin en el browser
+- `java.io.File`: no hay filesystem
 - Algunas excepciones de CheerpJ se comportan distinto (ej: `1/0` puede no lanzar `ArithmeticException`)
 - La primera ejecución es lenta (~5-10s) mientras CheerpJ inicializa la JVM
 
@@ -43,7 +41,7 @@ Los notebooks de ejemplo están en `public/examples/`. Para agregar o modificar 
    { "name": "Nombre visible en el menú", "filename": "mi-ejemplo.ipynb" }
    ```
 
-Para eliminar un ejemplo, borrar el `.ipynb` y su entrada en `index.json`. No requiere ninguna herramienta — son archivos estáticos.
+Para eliminar un ejemplo, borrar el `.ipynb` y su entrada en `index.json`. No requiere ninguna herramienta, son archivos estáticos.
 
 ---
 
@@ -95,7 +93,7 @@ npm install
 npm run dev
 ```
 
-El servidor de desarrollo corre en `http://localhost:5173/` con hot reload — los cambios en código se reflejan automáticamente en el navegador.
+El servidor de desarrollo corre en `http://localhost:5173/` con hot reload; los cambios en código se reflejan automáticamente en el navegador.
 
 ### Build de producción
 
@@ -180,10 +178,10 @@ start.bat               Script de inicio para Windows
 
 ### Stack técnico
 
-- **[Vite](https://vite.dev/)** — build tool + dev server
-- **[Bootstrap 5](https://getbootstrap.com/)** — framework CSS + componentes JS (navbar, tabs, cards, modals)
-- **[Bootstrap Icons](https://icons.getbootstrap.com/)** — íconos consistentes en toda la UI
-- **[CodeMirror 6](https://codemirror.net/)** — editor de código con syntax highlighting Java y Markdown
-- **[marked](https://marked.js.org/)** — renderizado de markdown
-- **[CheerpJ](https://cheerpj.com/)** — JVM completa en WebAssembly (Java 17)
-- **[JShell](https://docs.oracle.com/en/java/javase/17/jshell/)** — REPL de Java 17 para evaluar código interactivamente
+- **[Vite](https://vite.dev/)**: build tool + dev server
+- **[Bootstrap 5](https://getbootstrap.com/)**: framework CSS + componentes JS (navbar, tabs, cards, modals)
+- **[Bootstrap Icons](https://icons.getbootstrap.com/)**: íconos consistentes en toda la UI
+- **[CodeMirror 6](https://codemirror.net/)**: editor de código con syntax highlighting Java y Markdown
+- **[marked](https://marked.js.org/)**: renderizado de markdown
+- **[CheerpJ](https://cheerpj.com/)**: JVM completa en WebAssembly (Java 17)
+- **[JShell](https://docs.oracle.com/en/java/javase/17/jshell/)**: REPL de Java 17 para evaluar código interactivamente
