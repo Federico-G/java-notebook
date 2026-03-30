@@ -1,7 +1,10 @@
 // cell-renderer.js — DOM creation for code & markdown cells
 
 import { marked } from 'marked';
+import markedKatex from 'marked-katex-extension';
+import 'katex/dist/katex.min.css';
 
+marked.use(markedKatex({ throwOnError: false }));
 marked.use({ hooks: {
     postprocess(html) {
         return html.replace(/<a href="/g, '<a target="_blank" rel="noopener" href="');
